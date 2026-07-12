@@ -328,11 +328,11 @@
     .sidebar.open{left:0}
     .two-col,.three-col,.form-grid{grid-template-columns:1fr}
     .content{padding:14px}
-    .topbar{padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
-    .topbar h2{font-size:18px}
+    .topbar{padding:calc(10px + env(safe-area-inset-top)) 14px 10px;flex-wrap:nowrap;gap:8px}
+    .topbar h2{font-size:17px;flex:0 0 auto;white-space:nowrap}
     .topbar .spacer{display:none}
-    #globalFilters{width:100%;gap:8px}
-    #globalFilters>select{flex:1 1 40%;min-width:0}
+    #globalFilters{flex:1 1 auto;min-width:0;justify-content:flex-end;gap:6px}
+    #globalFilters>select{flex:1 1 40%;min-width:0;font-size:12px;padding:6px 7px}
     .kpi .val{font-size:20px}
     #toasts{bottom:calc(78px + env(safe-area-inset-bottom));right:12px;left:12px}
   }
