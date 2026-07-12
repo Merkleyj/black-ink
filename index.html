@@ -329,12 +329,30 @@
     .two-col,.three-col,.form-grid{grid-template-columns:1fr}
     .content{padding:14px}
     .topbar{padding:10px 14px}
-    .menu-btn{display:inline-flex!important}
     .kpi .val{font-size:20px}
+    #toasts{bottom:calc(78px + env(safe-area-inset-bottom));right:12px;left:12px}
   }
   .menu-btn{display:none}
   .scrim{display:none}
   .scrim.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:110}
+  /* ---- mobile bottom tab bar ---- */
+  .bottombar{
+    display:none;position:fixed;left:0;right:0;bottom:0;z-index:100;
+    background:var(--surface);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);
+    box-shadow:0 -2px 12px rgba(15,27,46,.06);
+  }
+  .bottombar button{
+    flex:1;min-width:0;background:none;border:0;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:8px 2px 7px;color:var(--muted);font-size:10px;font-weight:600;transition:color .12s;
+  }
+  .bottombar button .ic{width:23px;height:23px;display:flex;align-items:center;justify-content:center}
+  .bottombar button .ic svg{width:22px;height:22px}
+  .bottombar button.active{color:var(--blue)}
+  .bottombar button .lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bottombar button:active{background:var(--surface-2)}
+  @media (max-width:880px){ .bottombar{display:flex} }
 
   /* ============ OVERVIEW REDESIGN ============ */
   .ov-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-bottom:24px;flex-wrap:wrap}
@@ -420,7 +438,7 @@
   }
   @media (max-width:880px){
     .ov-hero{grid-template-columns:1fr}
-    .content{padding:16px}
+    .content{padding:16px 16px calc(72px + env(safe-area-inset-bottom))}
     .ov-title{font-size:23px}
     .fc-value{font-size:38px}
     .bp-row{grid-template-columns:1fr;gap:6px}
@@ -574,7 +592,7 @@
 
   <div class="main">
     <header class="topbar">
-      <button class="btn ghost menu-btn" onclick="toggleNav(true)">${_ic('<line x1="3" y1="6" x2="21" y2="6"><line x1="3" y1="12" x2="21" y2="12"><line x1="3" y1="18" x2="21" y2="18">')}</line></line></line></button>
+      <button class="btn ghost menu-btn" onclick="toggleNav(true)" aria-label="Menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <h2 id="pageTitle">Overview</h2>
       <div class="spacer"></div>
       <div class="filterbar" id="globalFilters">
@@ -599,6 +617,8 @@
     <div class="content" id="content"></div>
   </div>
 </div>
+
+<nav class="bottombar" id="bottomBar"></nav>
 
 <div class="overlay hidden" id="overlay"><div id="modalHost"></div></div>
 <div id="toasts"></div>
@@ -1371,10 +1391,29 @@ function buildNav(){
   n.innerHTML=TABS.map(t=> t.sep
     ? `<div class="navlabel">${t.sep}</div>`
     : `<button data-tab="${t.id}" onclick="go('${t.id}')"><span class="ic">${ICONS[t.id]||''}</span>${t.label}</button>`).join('');
+  buildBottomNav();
+}
+/* Mobile bottom tab bar: primary destinations + "More" (opens the full drawer). */
+const BOTTOM_TABS=['overview','transactions','budget','accounts'];
+const MORE_ICON=_ic('<circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/>');
+function buildBottomNav(){
+  const b=document.getElementById('bottomBar');
+  if(!b) return;
+  const primary=BOTTOM_TABS.map(id=>{
+    const t=TABS.find(x=>x.id===id)||{id,label:id};
+    return `<button data-tab="${id}" onclick="go('${id}')"><span class="ic">${ICONS[id]||''}</span><span class="lbl">${t.label}</span></button>`;
+  }).join('');
+  b.innerHTML=primary+`<button data-more="1" onclick="toggleNav(true)"><span class="ic">${MORE_ICON}</span><span class="lbl">More</span></button>`;
 }
 function go(tab){ activeTab=tab; toggleNav(false); render(); }
 function setActiveNav(){
   document.querySelectorAll('#navTabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===activeTab));
+  const bb=document.getElementById('bottomBar');
+  if(bb){
+    bb.querySelectorAll('button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===activeTab));
+    const moreBtn=bb.querySelector('button[data-more]');
+    if(moreBtn) moreBtn.classList.toggle('active', BOTTOM_TABS.indexOf(activeTab)<0);
+  }
   const t=TABS.find(x=>x.id===activeTab);
   document.getElementById('pageTitle').textContent=t?t.label:'';
 }
