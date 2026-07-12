@@ -1,0 +1,19 @@
+# Claude Code local settings (personal, machine-specific)
+.claude/settings.local.json
+
+# Dependencies
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Local-only overrides (see js/config.js for the committed template)
+js/config.local.js
+
+# Logs
+*.log
+npm-debug.log*
