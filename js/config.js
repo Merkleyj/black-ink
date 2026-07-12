@@ -14,8 +14,8 @@
    js/config.local.js (git-ignored) and load that instead in index.html.
    ===================================================================== */
 window.BLACKINK_CONFIG = {
-  SUPABASE_URL: 'YOUR_SUPABASE_URL',        // e.g. https://abcdefgh.supabase.co
-  SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY',
+  SUPABASE_URL: 'https://premmdvakrryuexhkssk.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByZW1tZHZha3JyeXVleGhrc3NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NzEwMDQsImV4cCI6MjA5OTQ0NzAwNH0.6CuN7Md2yYnZE_fhxjXdoyY1zlx2AbHsd-8r1v_4a-A',
 
   // Where Supabase should send users back after OAuth / magic-link sign-in.
   // Leave null to use the current page's URL automatically (recommended —
