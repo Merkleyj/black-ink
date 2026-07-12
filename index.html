@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Black Ink</title>
 <meta name="description" content="Offline-first personal finance dashboard: budgets, transactions, debt payoff, investments, and net worth.">
 <link rel="manifest" href="manifest.webmanifest">
@@ -328,7 +328,11 @@
     .sidebar.open{left:0}
     .two-col,.three-col,.form-grid{grid-template-columns:1fr}
     .content{padding:14px}
-    .topbar{padding:10px 14px}
+    .topbar{padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
+    .topbar h2{font-size:18px}
+    .topbar .spacer{display:none}
+    #globalFilters{width:100%;gap:8px}
+    #globalFilters>select{flex:1 1 40%;min-width:0}
     .kpi .val{font-size:20px}
     #toasts{bottom:calc(78px + env(safe-area-inset-bottom));right:12px;left:12px}
   }
@@ -340,6 +344,8 @@
     display:none;position:fixed;left:0;right:0;bottom:0;z-index:100;
     background:var(--surface);border-top:1px solid var(--line);
     padding-bottom:env(safe-area-inset-bottom);
+    padding-left:max(6px, env(safe-area-inset-left));
+    padding-right:max(6px, env(safe-area-inset-right));
     box-shadow:0 -2px 12px rgba(15,27,46,.06);
   }
   .bottombar button{
