@@ -586,6 +586,23 @@
     .mini-grid{grid-template-columns:1fr 1fr}
     .kpi{padding:13px 14px}
     .kpi .val{font-size:20px}
+
+    /* Transactions: table rows become stacked cards */
+    #txTableWrap table,#txTableWrap tbody{display:block}
+    #txTableWrap thead{display:none}
+    #txTableWrap tr{
+      display:grid;grid-template-columns:1fr auto;column-gap:10px;row-gap:3px;
+      align-items:start;padding:12px 14px;margin-bottom:10px;
+      border:1px solid var(--line);border-radius:12px;background:var(--surface);
+    }
+    #txTableWrap td{display:block;border:none;padding:0}
+    #txTableWrap td:nth-child(1),#txTableWrap td:nth-child(6){display:none} /* checkbox, kind */
+    #txTableWrap td:nth-child(3){grid-row:1;grid-column:1;font-weight:600;font-size:14px;color:var(--ink)} /* merchant */
+    #txTableWrap td:nth-child(7){grid-row:1;grid-column:2;text-align:right;font-weight:700;font-size:15px} /* amount */
+    #txTableWrap td:nth-child(2){grid-row:2;grid-column:1;font-size:12px;color:var(--muted)} /* date */
+    #txTableWrap td:nth-child(4){grid-row:2;grid-column:2;text-align:right;font-size:12px;color:var(--muted)} /* account */
+    #txTableWrap td:nth-child(5){grid-row:3;grid-column:1;margin-top:2px} /* category */
+    #txTableWrap td:nth-child(8){grid-row:3;grid-column:2;text-align:right} /* edit */
   }
 </style>
 <script>
