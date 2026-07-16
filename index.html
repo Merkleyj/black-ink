@@ -1757,6 +1757,13 @@ function makeChart(id,config){
   charts[id]=new Chart(el, config);
 }
 const PALETTE=['#2563eb','#16a34a','#d97706','#7c5cd6','#dc2626','#0ea5e9','#0d9488','#f59e0b','#8b5cf6','#64748b','#3b82f6','#22c55e'];
+/* Categorical palette resolved from the live theme tokens, so charts follow the
+   current accent (data-accent) and adapt to light/dark. Leads with the accent. */
+function themePalette(n){
+  const toks=['--blue','--teal','--amber','--violet','--red','--muted','--blue-2','--muted-2'];
+  const base=toks.map(cvar).filter(Boolean);
+  const out=[]; for(let i=0;i<n;i++) out.push(base[i%base.length]); return out;
+}
 if(window.Chart){ Chart.defaults.font.family="'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"; Chart.defaults.font.size=12; Chart.defaults.color='#64748b'; Chart.defaults.plugins.legend.labels.color='#334155'; }
 
 /* =====================================================================
@@ -2877,9 +2884,9 @@ const pieLabelPlugin={
    colors so the same category is the same slice in both. Negative netted
    values (refund-heavy categories) are clamped to 0 for the pie. */
 function makeBudPies(labels,dBud,dAct,suffix){
-  const colors=labels.map((_,i)=>PALETTE[i%PALETTE.length]);
+  const colors=themePalette(labels.length);
   const cfg=(title,data)=>({type:'pie',
-    data:{labels,datasets:[{data:data.map(v=>Math.max(0,v)),backgroundColor:colors,borderWidth:1}]},
+    data:{labels,datasets:[{data:data.map(v=>Math.max(0,v)),backgroundColor:colors,borderWidth:2,borderColor:cvar('--surface')}]},
     plugins:[pieLabelPlugin],
     options:{layout:{padding:{left:110,right:110,top:6,bottom:14}},plugins:{legend:{display:false},title:{display:true,text:title+(suffix?' · '+suffix:'')},tooltip:{callbacks:{label:(c)=>`${c.label}: ${money(c.parsed)}`}}}}});
   makeChart('budPieBudget',cfg('Budget',dBud));
