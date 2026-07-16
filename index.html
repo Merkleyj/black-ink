@@ -808,6 +808,59 @@
 <div class="sheet-scrim" id="sheetScrim" onclick="closeMoreSheet()"></div>
 <div class="more-sheet" id="moreSheet" role="dialog" aria-label="More"></div>
 
+<style>
+  /* ===== TV dashboard (non-interactive, no-scroll, 16:9) ===== */
+  html.tv-mode .sidebar,html.tv-mode .topbar,html.tv-mode .bottombar,html.tv-mode .more-sheet,
+  html.tv-mode #globalFilters,html.tv-mode #content,html.tv-mode .scrim{display:none!important}
+  html.tv-mode,html.tv-mode body{overflow:hidden;height:100%}
+  #tvScreen{
+    position:fixed;inset:0;z-index:8000;background:var(--paper);color:var(--ink);
+    display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:auto 1fr 1fr 1fr;
+    gap:1.3vh 1vw;padding:2vh 1.8vw;font-family:var(--sans);overflow:hidden;cursor:default;
+  }
+  #tvScreen.hidden{display:none}
+  #tvScreen .tvh{grid-column:1/-1;display:flex;align-items:center;gap:1vw}
+  #tvScreen .tvh .mk{width:3.6vh;height:3.6vh;border-radius:.8vh;background:#000;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 auto}
+  #tvScreen .tvh .mk svg{width:2.3vh;height:2.3vh}
+  #tvScreen .tvh .brand{font-size:clamp(1rem,2.4vh,2.2rem);font-weight:700;letter-spacing:-.02em}
+  #tvScreen .tvh .period{color:var(--muted);font-size:clamp(.85rem,1.9vh,1.6rem);margin-left:.4vw}
+  #tvScreen .tvh .sp{flex:1}
+  #tvScreen .tvh .clock{font-family:var(--mono);font-size:clamp(1rem,2.6vh,2.2rem);font-weight:600;letter-spacing:-.01em}
+  #tvScreen .tvh .upd{color:var(--muted-2);font-size:clamp(.7rem,1.5vh,1.15rem);margin-left:.9vw}
+  .tv-tile{background:var(--surface);border:1px solid var(--line);border-radius:1.4vh;padding:1.5vh 1.3vw;display:flex;flex-direction:column;justify-content:center;overflow:hidden;box-shadow:var(--shadow-card);min-height:0;min-width:0}
+  .tv-tile .lbl{font-size:clamp(.65rem,1.5vh,1.15rem);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:.7vh}
+  .tv-tile .big{font-size:clamp(1.4rem,5.2vh,4.4rem);font-weight:700;letter-spacing:-.03em;line-height:1;font-family:var(--mono)}
+  .tv-tile .big.pos{color:var(--teal)} .tv-tile .big.neg{color:var(--red)}
+  .tv-tile .sub{font-size:clamp(.75rem,1.7vh,1.3rem);color:var(--muted);margin-top:.9vh}
+  .tv-tile .sub .up{color:var(--teal)} .tv-tile .sub .down{color:var(--red)}
+  .tv-hero .big{font-size:clamp(2rem,8.5vh,7rem)}
+  .tv-trio{display:flex;gap:1vw;align-items:stretch}
+  .tv-trio>div{flex:1;min-width:0}
+  .tv-trio .tl{font-size:clamp(.6rem,1.4vh,1rem);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+  .tv-trio .tv{font-size:clamp(1rem,3.4vh,2.6rem);font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1}
+  .tv-trio .tv.pos{color:var(--teal)} .tv-trio .tv.neg{color:var(--red)}
+  .tv-bar{height:1.3vh;border-radius:1vh;background:var(--surface-2);overflow:hidden;margin-top:1.2vh;display:flex}
+  .tv-bar>span{height:100%;display:block}
+  .tv-cats{display:flex;flex-direction:column;gap:1vh;justify-content:center}
+  .tv-cats .row{display:flex;align-items:center;gap:.7vw;font-size:clamp(.7rem,1.7vh,1.2rem)}
+  .tv-cats .row .nm{width:38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+  .tv-cats .row .tr{flex:1;height:1.2vh;background:var(--surface-2);border-radius:1vh;overflow:hidden}
+  .tv-cats .row .tr>span{display:block;height:100%;background:var(--blue);border-radius:1vh}
+  .tv-cats .row .amt{font-family:var(--mono);color:var(--muted);white-space:nowrap}
+  .tv-att{display:flex;flex-direction:column;gap:1vh;justify-content:center;font-size:clamp(.7rem,1.6vh,1.15rem)}
+  .tv-att .a{display:flex;gap:.7vw;align-items:flex-start;line-height:1.3}
+  .tv-att .dot{width:1vh;height:1vh;border-radius:50%;margin-top:.55vh;flex:0 0 auto;background:var(--muted)}
+  .tv-att .a.warn .dot{background:var(--amber)} .tv-att .a.bad .dot{background:var(--red)} .tv-att .a.good .dot{background:var(--teal)}
+  .tv-att .empty{color:var(--muted);display:flex;align-items:center;gap:.6vw}
+  .tv-chart{padding:1.2vh 1vw .6vh}
+  .tv-chart canvas{width:100%!important;height:100%!important}
+  .tv-exit-hint{position:fixed;bottom:1.6vh;right:1.4vw;z-index:8001;color:var(--muted);font-size:clamp(.7rem,1.4vh,1rem);background:var(--surface);border:1px solid var(--line);border-radius:1vh;padding:.6vh 1vw;opacity:0;transition:opacity .5s;pointer-events:none}
+  .tv-exit-hint.show{opacity:.9}
+</style>
+
+<div id="tvScreen" class="hidden" aria-hidden="true" onclick="exitTVMode()"></div>
+<div class="tv-exit-hint" id="tvExitHint">Press Esc or click to exit</div>
+
 <div class="overlay hidden" id="overlay"><div id="modalHost"></div></div>
 <div id="toasts"></div>
 
@@ -4438,6 +4491,15 @@ function viewExport(){
     <p class="sub">Generate a snapshot to discuss with Claude, back up your data, or adjust preferences.</p></div></div>
 
   <div class="card">
+    <div class="hd"><h3>TV dashboard</h3><span class="sub" style="margin-left:auto">Full-screen glanceable view</span></div>
+    <div class="bd">
+      <p class="mini">A non-interactive, full-screen summary for a TV or spare monitor — net worth, this month's cash flow, budget, balances, a 6-month trend, and alerts. Press <b>Esc</b> or click to exit.</p>
+      <div class="btn-row" style="margin-top:12px"><button class="btn primary" onclick="enterTVMode({fullscreen:true})">Display on TV</button></div>
+      <p class="mini" style="margin-top:10px">Always-on TV? Open <code>${esc(location.origin+location.pathname)}#tv</code> directly in the TV's browser and sign in once.</p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="hd"><h3>Appearance</h3><span class="sub" style="margin-left:auto">Theme &amp; accent color</span></div>
     <div class="bd">
       <div class="appear-grid">
@@ -5188,6 +5250,135 @@ function loadSampleData(){
 /* =====================================================================
    BOOT
    ===================================================================== */
+/* =====================================================================
+   TV DASHBOARD — non-interactive, no-scroll, 16:9. Activated by #tv or the
+   Settings button. Reuses the existing metric functions; period is always
+   the current calendar month. Esc / click exits.
+   ===================================================================== */
+const TV_MARK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path></svg>';
+let tvTimers={clock:null,refresh:null}, tvLastUpdated=null, tvPrevFilter=null;
+function isTVMode(){ return document.documentElement.classList.contains('tv-mode'); }
+function tvClockStr(d){ try{ return d.toLocaleTimeString(S?.settings?.locale||'en-US',{hour:'numeric',minute:'2-digit'}); }catch(e){ return d.toTimeString().slice(0,5); } }
+function updateTVClock(){
+  const c=document.getElementById('tvClock'); if(c) c.textContent=tvClockStr(new Date());
+  const u=document.getElementById('tvUpd');
+  if(u && tvLastUpdated){ const m=Math.round((Date.now()-tvLastUpdated)/60000); u.textContent = m<1?'updated just now':('updated '+m+'m ago'); }
+}
+function tvBarSpan(color,pct){ return `<span style="width:${clamp(pct,0,100)}%;background:${color}"></span>`; }
+function renderTV(){
+  const host=document.getElementById('tvScreen'); if(!host || !S || !S.setupDone) return;
+  const now=new Date();
+  const mk=monthKey(now), prevMk=monthKey(new Date(now.getFullYear(),now.getMonth()-1,1));
+  const a=analyze(monthTx(mk)), pa=analyze(monthTx(prevMk));
+  const nw=netWorth();
+  const sr=savingsRate(a.income,a.spending);
+  const br=computeBudgetRemaining();
+  const cash=totalCash(), invv=totalInvest(), debt=totalDebt();
+  const em=emergencyMonths();
+  const inSum=a.income+a.spending, inPct=inSum>0?(a.income/inSum*100):50;
+  const usedPct=br.budget>0?(br.spent/br.budget*100):0;
+  const netDelta=a.net-pa.net;
+  const cats=Object.entries(a.byCat||{}).sort((x,y)=>y[1]-x[1]).slice(0,5);
+  const catMax=cats.length?Math.max(...cats.map(c=>c[1]),1):1;
+  const att=(typeof overviewAttention==='function')?overviewAttention(a,br).slice(0,4):[];
+  const toneCls={red:'bad',amber:'warn',note:'',good:'good'};
+  const tile=(gc,gr,cls,inner)=>`<div class="tv-tile ${cls||''}" style="grid-column:${gc};grid-row:${gr}">${inner}</div>`;
+  host.innerHTML=`
+    <div class="tvh">
+      <div class="mk">${TV_MARK}</div><span class="brand">Black Ink</span>
+      <span class="period">${esc(monthLabel(mk))}</span>
+      <span class="sp"></span>
+      <span class="clock" id="tvClock">${tvClockStr(now)}</span>
+      <span class="upd" id="tvUpd"></span>
+    </div>
+    ${tile('1/5','2','tv-hero',
+      `<div class="lbl">Net worth</div>
+       <div class="big ${nw.net>=0?'':'neg'}">${money(nw.net)}</div>
+       <div class="sub">Assets ${money(nw.assets)} · Debt ${money(nw.liab)}</div>`)}
+    ${tile('5/9','2','',
+      `<div class="lbl">Cash flow · this month</div>
+       <div class="tv-trio">
+         <div><div class="tl">In</div><div class="tv pos">${money(a.income)}</div></div>
+         <div><div class="tl">Out</div><div class="tv neg">${money(a.spending)}</div></div>
+         <div><div class="tl">Net</div><div class="tv ${a.net>=0?'pos':'neg'}">${money(a.net,true)}</div></div>
+       </div>
+       <div class="tv-bar">${tvBarSpan(cvar('--teal'),inPct)}${tvBarSpan(cvar('--muted-2'),100-inPct)}</div>`)}
+    ${tile('9/13','2','',
+      `<div class="lbl">Savings rate</div>
+       <div class="big ${sr>=0?'pos':'neg'}">${pct(sr,0)}</div>
+       <div class="sub">${netDelta>=0?'<span class="up">▲ '+money(netDelta)+'</span>':'<span class="down">▼ '+money(Math.abs(netDelta))+'</span>'} vs last month</div>`)}
+    ${tile('1/5','3','',
+      `<div class="lbl">Balances</div>
+       <div class="tv-trio">
+         <div><div class="tl">Cash</div><div class="tv">${money(cash)}</div></div>
+         <div><div class="tl">Invest</div><div class="tv">${money(invv)}</div></div>
+         <div><div class="tl">Debt</div><div class="tv ${debt>0?'neg':''}">${money(debt)}</div></div>
+       </div>`)}
+    ${tile('5/9','3','',
+      `<div class="lbl">Budget remaining</div>
+       <div class="big ${br.remaining>=0?'':'neg'}">${money(br.remaining)}</div>
+       <div class="tv-bar">${tvBarSpan(usedPct>100?cvar('--red'):cvar('--blue'),usedPct)}</div>
+       <div class="sub">${br.budget>0?money(br.spent)+' of '+money(br.budget)+' used':'No budget set'}</div>`)}
+    ${tile('9/13','3','',
+      `<div class="lbl">Emergency fund</div>
+       <div class="big ${em!=null&&em<3?'neg':(em!=null?'pos':'')}">${em!=null?em.toFixed(1):'—'}<span style="font-size:.4em;color:var(--muted);font-family:var(--sans)"> months</span></div>
+       <div class="sub">${em!=null?'of essential spending covered':'Add savings to track runway'}</div>`)}
+    <div class="tv-tile tv-chart" style="grid-column:1/7;grid-row:4"><canvas id="tvTrend"></canvas></div>
+    ${tile('7/10','4','',
+      `<div class="lbl">Top spending</div>
+       <div class="tv-cats">${cats.length?cats.map(([n,v])=>`<div class="row"><span class="nm">${esc(n)}</span><span class="tr"><span style="width:${clamp(v/catMax*100,3,100)}%"></span></span><span class="amt">${money(v)}</span></div>`).join(''):'<div class="empty">No spending yet</div>'}</div>`)}
+    ${tile('10/13','4','',
+      `<div class="lbl">Needs attention</div>
+       <div class="tv-att">${att.length?att.map(x=>`<div class="a ${toneCls[x.tone]||''}"><span class="dot"></span><span>${x.text}</span></div>`).join(''):'<div class="empty">✓ All clear</div>'}</div>`)}
+  `;
+  afterTV();
+  updateTVClock();
+}
+function afterTV(){
+  if(!window.Chart) return;
+  const months=last6Months();
+  const inc=[],sp=[],net=[];
+  months.forEach(mk=>{ const ma=analyze(monthTx(mk)); inc.push(ma.income); sp.push(ma.spending); net.push(ma.income-ma.spending); });
+  makeChart('tvTrend',{type:'bar',
+    data:{labels:months.map(m=>monthLabel(m).replace(/ \d{4}$/,'')),datasets:[
+      {type:'line',label:'Net',data:net,borderColor:cvar('--blue'),backgroundColor:'transparent',borderWidth:3,tension:.35,pointRadius:0,order:0},
+      {label:'Income',data:inc,backgroundColor:cvar('--teal'),borderRadius:4,maxBarThickness:26,order:1},
+      {label:'Spending',data:sp,backgroundColor:cvar('--muted-2'),borderRadius:4,maxBarThickness:26,order:1}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'circle',padding:10,font:{size:11}}}},
+      scales:{y:{ticks:{callback:v=>money(v),font:{size:10}},grid:{color:cvar('--line-2'),drawBorder:false},border:{display:false}},x:{grid:{display:false,drawBorder:false},border:{display:false},ticks:{font:{size:10}}}}}});
+}
+function showTVExitHint(){ const h=document.getElementById('tvExitHint'); if(!h) return; h.classList.add('show'); setTimeout(()=>h.classList.remove('show'),3600); }
+function enterTVMode(opts={}){
+  if(!S || !S.setupDone){ toast('Finish setup first','warn'); return; }
+  if(!tvPrevFilter) tvPrevFilter={preset:filter.preset,account:filter.account,start:filter.start,end:filter.end};
+  filter.preset='thisMonth'; filter.account='all';
+  document.documentElement.classList.add('tv-mode');
+  const host=document.getElementById('tvScreen'); if(host) host.classList.remove('hidden');
+  if(location.hash!=='#tv') location.hash='tv';
+  tvLastUpdated=Date.now();
+  renderTV();
+  clearInterval(tvTimers.clock); tvTimers.clock=setInterval(updateTVClock,1000);
+  clearInterval(tvTimers.refresh); tvTimers.refresh=setInterval(async()=>{ try{ await loadState(); tvLastUpdated=Date.now(); if(isTVMode()) renderTV(); }catch(e){} },300000);
+  showTVExitHint();
+  if(opts.fullscreen){ try{ const el=document.documentElement; if(el.requestFullscreen) el.requestFullscreen(); }catch(e){} }
+}
+function exitTVMode(){
+  if(!isTVMode()) return;
+  clearInterval(tvTimers.clock); clearInterval(tvTimers.refresh); tvTimers.clock=tvTimers.refresh=null;
+  document.documentElement.classList.remove('tv-mode');
+  const host=document.getElementById('tvScreen'); if(host) host.classList.add('hidden');
+  if(tvPrevFilter){ Object.assign(filter,tvPrevFilter); tvPrevFilter=null; }
+  if(location.hash==='#tv'){ try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} }
+  try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
+  if(S && S.setupDone) render();
+}
+function maybeTVFromHash(){
+  if(location.hash==='#tv'){ if(S && S.setupDone && !isTVMode()) enterTVMode(); }
+  else if(isTVMode()){ exitTVMode(); }
+}
+window.addEventListener('hashchange', maybeTVFromHash);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && isTVMode()) exitTVMode(); });
+
 async function boot(){
   await loadState();
   // Probe persistence so the badge is accurate from the start.
@@ -5196,6 +5387,7 @@ async function boot(){
   updatePersistBadge();
   // First-ever run: state exists but setup not done and no accounts -> show wizard.
   render();
+  maybeTVFromHash();   // deep-link to #tv (also fires after the sign-in gate, since boot runs post-auth)
 }
 /* The cloud layer (js/auth.js) decides when to run boot() — after a session
    is resolved, or immediately in local-only mode. It calls window.__blackInkBoot. */
