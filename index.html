@@ -359,6 +359,31 @@
   .bottombar button .lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .bottombar button:active{background:var(--surface-2)}
   @media (max-width:880px){ .bottombar{display:flex} }
+  /* ---- "More" bottom sheet (replaces the side drawer on mobile) ---- */
+  .sheet-scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:150;opacity:0;visibility:hidden;transition:opacity .2s}
+  .sheet-scrim.show{opacity:1;visibility:visible}
+  .more-sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:151;background:var(--surface);
+    border-radius:18px 18px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.28);
+    transform:translateY(105%);transition:transform .26s cubic-bezier(.4,0,.2,1);
+    padding:6px 16px calc(18px + env(safe-area-inset-bottom));max-height:82vh;overflow-y:auto;
+  }
+  .more-sheet.show{transform:translateY(0)}
+  .more-sheet .sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 12px}
+  .more-sheet .sheet-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .more-sheet .sheet-hd h3{font-size:16px}
+  .more-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .more-grid button{
+    display:flex;flex-direction:column;align-items:center;gap:8px;padding:15px 6px;
+    border:1px solid var(--line);border-radius:13px;background:var(--surface);color:var(--ink);
+    font-size:12px;font-weight:600;cursor:pointer;text-align:center;line-height:1.2;
+  }
+  .more-grid button .ic{width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  .more-grid button .ic svg{width:24px;height:24px}
+  .more-grid button.active{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+  .more-grid button.active .ic{color:var(--blue)}
+  .more-grid button:active{background:var(--surface-2)}
+  .more-foot{margin-top:15px;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px}
 
   /* ============ OVERVIEW REDESIGN ============ */
   .ov-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-bottom:24px;flex-wrap:wrap}
@@ -585,6 +610,7 @@
   @media (max-width:880px){
     .kpi-row{grid-template-columns:1fr 1fr;gap:10px}
     .mini-grid{grid-template-columns:1fr 1fr}
+    .grid-2{grid-template-columns:1fr;gap:14px}   /* Review: stack paired blocks vertically */
     .kpi{padding:13px 14px}
     .kpi .val{font-size:20px}
 
@@ -687,6 +713,8 @@
 </div>
 
 <nav class="bottombar" id="bottomBar"></nav>
+<div class="sheet-scrim" id="sheetScrim" onclick="closeMoreSheet()"></div>
+<div class="more-sheet" id="moreSheet" role="dialog" aria-label="More"></div>
 
 <div class="overlay hidden" id="overlay"><div id="modalHost"></div></div>
 <div id="toasts"></div>
@@ -1471,8 +1499,30 @@ function buildBottomNav(){
     const t=TABS.find(x=>x.id===id)||{id,label:id};
     return `<button data-tab="${id}" onclick="go('${id}')"><span class="ic">${ICONS[id]||''}</span><span class="lbl">${t.label}</span></button>`;
   }).join('');
-  b.innerHTML=primary+`<button data-more="1" onclick="toggleNav(true)"><span class="ic">${MORE_ICON}</span><span class="lbl">More</span></button>`;
+  b.innerHTML=primary+`<button data-more="1" onclick="openMoreSheet()"><span class="ic">${MORE_ICON}</span><span class="lbl">More</span></button>`;
 }
+/* "More" opens a bottom sheet listing the overflow tabs (plus account/sign-out),
+   instead of sliding out the desktop side drawer. */
+function buildMoreSheet(){
+  const sheet=document.getElementById('moreSheet'); if(!sheet) return;
+  const items=TABS.filter(t=>t.id && BOTTOM_TABS.indexOf(t.id)<0);
+  const grid=items.map(t=>`<button data-tab="${t.id}" class="${activeTab===t.id?'active':''}" onclick="closeMoreSheet();go('${t.id}')"><span class="ic">${ICONS[t.id]||''}</span>${t.label}</button>`).join('');
+  let foot='';
+  const u=window.BlackInkSync&&BlackInkSync.user;
+  const status=(document.getElementById('persistText')||{}).textContent||'';
+  if(u){
+    foot=`<div class="more-foot"><div style="flex:1;min-width:0">
+      <div style="font-size:11px;color:var(--muted)">Signed in as</div>
+      <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.email||'')}</div>
+      ${status?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(status)}</div>`:''}
+    </div><button class="btn sm" onclick="closeMoreSheet();BlackInkApp.signOut()">Sign out</button></div>`;
+  }
+  sheet.innerHTML=`<div class="sheet-handle"></div>
+    <div class="sheet-hd"><h3>More</h3><button class="x" onclick="closeMoreSheet()">×</button></div>
+    <div class="more-grid">${grid}</div>${foot}`;
+}
+function openMoreSheet(){ buildMoreSheet(); const s=document.getElementById('moreSheet'); document.getElementById('sheetScrim').classList.add('show'); s.classList.add('show'); s.style.transform='translateY(0)'; }
+function closeMoreSheet(){ const s=document.getElementById('moreSheet'); document.getElementById('sheetScrim').classList.remove('show'); if(s){ s.classList.remove('show'); s.style.transform=''; } }
 function go(tab){ activeTab=tab; toggleNav(false); render(); }
 function setActiveNav(){
   document.querySelectorAll('#navTabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===activeTab));
