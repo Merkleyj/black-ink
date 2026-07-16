@@ -662,6 +662,34 @@
     #budCatWrap tr.subrow .subname{padding-left:0}
     #budCatWrap tr.subrow.subnote{display:block;border:none;background:none;margin:2px 4px 10px;padding:0}
     #budCatWrap tr.subrow.subnote td{display:block;color:var(--muted)}
+
+    /* ---- Categories tab ---- */
+    /* Uncategorized queue: stack keyword row over a full-width subcategory picker */
+    .uncat-row{grid-template-columns:auto 1fr}
+    .uncat-row .ur-sel{grid-column:1/-1;width:100%;max-width:none}
+    .ur-kw{max-width:none}
+
+    /* Rules list: table rows become cards */
+    #rulesListWrap table,#rulesListWrap tbody{display:block}
+    #rulesListWrap thead{display:none}
+    #rulesListWrap tr{display:grid;grid-template-columns:auto 1fr auto;gap:6px 8px;padding:11px 13px;margin:0 0 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);align-items:center}
+    #rulesListWrap td{display:block;border:none;padding:0}
+    #rulesListWrap td:nth-child(2){grid-row:1;grid-column:1;font-size:11px;color:var(--muted);font-weight:700}   /* # priority */
+    #rulesListWrap td:nth-child(3){grid-row:1;grid-column:2}                                                     /* When */
+    #rulesListWrap td:nth-child(1){grid-row:1;grid-column:3;justify-self:end}                                    /* on/off switch */
+    #rulesListWrap td:nth-child(4){grid-row:2;grid-column:1/-1}                                                  /* Then subcategory */
+    #rulesListWrap td:nth-child(5){grid-row:3;grid-column:1/2;align-self:center}                                 /* type */
+    #rulesListWrap td:nth-child(6){grid-row:3;grid-column:2/-1;text-align:right;white-space:nowrap}              /* actions */
+
+    /* Category editor: one card per category, chips wrap on their own row */
+    #catEditTable,#catEditTable tbody{display:block}
+    #catEditTable thead{display:none}
+    #catEditTable tr{display:grid;grid-template-columns:1fr auto;gap:7px 10px;padding:12px 14px;margin:0 0 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+    #catEditTable td{display:block;border:none;padding:0}
+    #catEditTable td:nth-child(1){grid-row:1;grid-column:1;font-size:15px}                    /* category name */
+    #catEditTable td:nth-child(4){grid-row:1;grid-column:2;text-align:right;white-space:nowrap} /* actions */
+    #catEditTable td:nth-child(2){grid-row:2;grid-column:1/-1}                                 /* kind */
+    #catEditTable td:nth-child(3){grid-row:3;grid-column:1/-1}                                 /* subcategory chips */
   }
 </style>
 <script>
@@ -3815,7 +3843,7 @@ function viewRules(){
     <div class="hd"><h3>Categories <span class="pill">${S.categories.length}</span></h3><button class="btn sm" onclick="addCategory()">+ Add category</button></div>
     <div class="bd">
     <p class="mini" style="margin:0 0 12px">Each subcategory carries its own needs/wants type — that's what drives the 50/30/20 split. Colors: <span class="pill blue">need</span> <span class="pill amber">want</span> <span class="pill green">savings &amp; debt</span>. Click an expense tag to switch need/want; click a transfer tag to set it as debt, savings, or neither (green counts toward your 50/30/20).</p>
-    <table class="tbl"><thead><tr><th>Category</th><th>Kind</th><th>Subcategories</th><th></th></tr></thead><tbody>
+    <table class="tbl" id="catEditTable"><thead><tr><th>Category</th><th>Kind</th><th>Subcategories</th><th></th></tr></thead><tbody>
       ${S.categories.map(c=>`<tr>
         <td><b>${esc(c.name)}</b></td>
         <td><span class="kind-tag ${esc(c.kind)}"><span class="kglyph">${c.kind==='income'?'\u2191':c.kind==='transfer'?'\u21C4':'\u2193'}</span>${esc(c.kind)}</span></td>
