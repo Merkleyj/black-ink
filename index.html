@@ -634,6 +634,7 @@
     #txTableWrap td:nth-child(8){grid-row:3;grid-column:2;text-align:right} /* edit */
 
     /* Budget › By category: rows become cards with labelled stats */
+    #budCatWrap{padding:0 12px}   /* keep category cards off the container border */
     #budCatWrap table,#budCatWrap tbody{display:block}
     #budCatWrap thead{display:none}
     #budCatWrap tr.catrow,#budCatWrap tr.subrow{
@@ -659,7 +660,7 @@
     #budCatWrap tr.subrow td:nth-child(6),#budCatWrap tr.subrow td:nth-child(7){display:none}
     #budCatWrap tr.subrow{margin-left:12px;margin-right:12px;background:var(--surface-2)}
     #budCatWrap tr.subrow .subname{padding-left:0}
-    #budCatWrap tr.subrow.subnote{display:block;border:none;background:none;margin:2px 2px 10px;padding:0}
+    #budCatWrap tr.subrow.subnote{display:block;border:none;background:none;margin:2px 4px 10px;padding:0}
     #budCatWrap tr.subrow.subnote td{display:block;color:var(--muted)}
   }
 </style>
