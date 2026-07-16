@@ -603,6 +603,35 @@
     #txTableWrap td:nth-child(4){grid-row:2;grid-column:2;text-align:right;font-size:12px;color:var(--muted)} /* account */
     #txTableWrap td:nth-child(5){grid-row:3;grid-column:1;margin-top:2px} /* category */
     #txTableWrap td:nth-child(8){grid-row:3;grid-column:2;text-align:right} /* edit */
+
+    /* Budget › By category: rows become cards with labelled stats */
+    #budCatWrap table,#budCatWrap tbody{display:block}
+    #budCatWrap thead{display:none}
+    #budCatWrap tr.catrow,#budCatWrap tr.subrow{
+      display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px 10px;
+      padding:11px 13px;margin-bottom:8px;border:1px solid var(--line);border-radius:11px;
+      background:var(--surface);align-items:start;
+    }
+    #budCatWrap tr.catrow td,#budCatWrap tr.subrow td{display:block;border:none;padding:0;text-align:left!important}
+    #budCatWrap tr.catrow td:nth-child(1),#budCatWrap tr.subrow td:nth-child(1){grid-column:1/-1;font-weight:600;margin-bottom:3px}
+    #budCatWrap tr.catrow td:nth-child(2),#budCatWrap tr.subrow td:nth-child(2){grid-column:1}
+    #budCatWrap tr.catrow td:nth-child(3),#budCatWrap tr.subrow td:nth-child(3){grid-column:2}
+    #budCatWrap tr.catrow td:nth-child(4),#budCatWrap tr.subrow td:nth-child(4){grid-column:3}
+    #budCatWrap tr.catrow td:nth-child(2)::before,#budCatWrap tr.subrow td:nth-child(2)::before,
+    #budCatWrap tr.catrow td:nth-child(3)::before,#budCatWrap tr.subrow td:nth-child(3)::before,
+    #budCatWrap tr.catrow td:nth-child(4)::before,#budCatWrap tr.subrow td:nth-child(4)::before{
+      display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:1px;
+    }
+    #budCatWrap tr.catrow td:nth-child(2)::before,#budCatWrap tr.subrow td:nth-child(2)::before{content:"Budget"}
+    #budCatWrap tr.catrow td:nth-child(3)::before,#budCatWrap tr.subrow td:nth-child(3)::before{content:"Actual"}
+    #budCatWrap tr.catrow td:nth-child(4)::before,#budCatWrap tr.subrow td:nth-child(4)::before{content:"Left"}
+    #budCatWrap tr.catrow td:nth-child(5),#budCatWrap tr.subrow td:nth-child(5){grid-column:1/-1;min-width:0!important;margin-top:4px}
+    #budCatWrap tr.catrow td:nth-child(6),#budCatWrap tr.catrow td:nth-child(7),
+    #budCatWrap tr.subrow td:nth-child(6),#budCatWrap tr.subrow td:nth-child(7){display:none}
+    #budCatWrap tr.subrow{margin-left:12px;background:var(--surface-2)}
+    #budCatWrap tr.subrow .subname{padding-left:0}
+    #budCatWrap tr.subrow.subnote{display:block;border:none;background:none;margin:2px 2px 10px;padding:0}
+    #budCatWrap tr.subrow.subnote td{display:block;color:var(--muted)}
   }
 </style>
 <script>
@@ -2441,7 +2470,7 @@ function viewBudget(){
       <button class="btn sm" onclick="setBudgetFromAvg()">Set from 3-mo average</button>
     </div></div>
   <p class="mini" style="margin:10px 16px 0">Click a category to expand it and set a budget for each subcategory. Category budgets are the sum of their subcategories.</p>
-  <div class="table-scroll"><table>
+  <div class="table-scroll" id="budCatWrap"><table>
     <thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Remaining</th><th>Used</th><th class="r">Last month</th><th class="r">3-mo avg</th></tr></thead>
     <tbody>${incomeRows}<tr class="subrow subnote"><td colspan="7" class="mini" style="padding-top:14px">Planned spending — set a budget for each expense category below. Expand a category to budget by subcategory; the category total is the sum of its subcategories.</td></tr>${rows}${transferRows}</tbody></table></div></div>`;
 }
