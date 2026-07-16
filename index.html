@@ -384,6 +384,8 @@
   .more-grid button.active .ic{color:var(--blue)}
   .more-grid button:active{background:var(--surface-2)}
   .more-foot{margin-top:15px;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  /* Freeze the page behind the sheet so a downward swipe dismisses instead of scrolling the background */
+  body.sheet-open{position:fixed;left:0;right:0;width:100%;overflow:hidden}
 
   /* ============ OVERVIEW REDESIGN ============ */
   .ov-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-bottom:24px;flex-wrap:wrap}
@@ -1521,8 +1523,50 @@ function buildMoreSheet(){
     <div class="sheet-hd"><h3>More</h3><button class="x" onclick="closeMoreSheet()">×</button></div>
     <div class="more-grid">${grid}</div>${foot}`;
 }
-function openMoreSheet(){ buildMoreSheet(); const s=document.getElementById('moreSheet'); document.getElementById('sheetScrim').classList.add('show'); s.classList.add('show'); s.style.transform='translateY(0)'; }
-function closeMoreSheet(){ const s=document.getElementById('moreSheet'); document.getElementById('sheetScrim').classList.remove('show'); if(s){ s.classList.remove('show'); s.style.transform=''; } }
+let _sheetGesturesInit=false;
+function initSheetGestures(){
+  if(_sheetGesturesInit) return;
+  const sheet=document.getElementById('moreSheet'), scrim=document.getElementById('sheetScrim');
+  if(!sheet||!scrim) return;
+  _sheetGesturesInit=true;
+  let startY=0, dy=0, dragging=false;
+  sheet.addEventListener('touchstart',e=>{
+    if(sheet.scrollTop>0){ dragging=false; return; }   // let inner content scroll first
+    startY=e.touches[0].clientY; dy=0; dragging=true; sheet.style.transition='none';
+  },{passive:true});
+  sheet.addEventListener('touchmove',e=>{
+    if(!dragging) return;
+    dy=e.touches[0].clientY-startY;
+    if(dy>0){ e.preventDefault(); sheet.style.transform='translateY('+dy+'px)'; }   // follow finger, block bg scroll
+  },{passive:false});
+  const end=()=>{
+    if(!dragging) return; dragging=false; sheet.style.transition='';
+    if(dy>90){ closeMoreSheet(); } else { sheet.style.transform='translateY(0)'; }
+  };
+  sheet.addEventListener('touchend',end);
+  sheet.addEventListener('touchcancel',end);
+  scrim.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});  // no scrolling through the backdrop
+}
+function openMoreSheet(){
+  buildMoreSheet(); initSheetGestures();
+  const s=document.getElementById('moreSheet');
+  const sy=window.scrollY||window.pageYOffset||0;
+  document.body.dataset.sheetScroll=sy;
+  document.body.style.top=(-sy)+'px';
+  document.body.classList.add('sheet-open');
+  document.getElementById('sheetScrim').classList.add('show');
+  s.classList.add('show'); s.style.transform='translateY(0)';
+}
+function closeMoreSheet(){
+  const s=document.getElementById('moreSheet');
+  document.getElementById('sheetScrim').classList.remove('show');
+  if(s){ s.classList.remove('show'); s.style.transform=''; }
+  if(document.body.classList.contains('sheet-open')){
+    const sy=parseInt(document.body.dataset.sheetScroll||'0',10);
+    document.body.classList.remove('sheet-open'); document.body.style.top='';
+    window.scrollTo(0,sy);
+  }
+}
 function go(tab){ activeTab=tab; toggleNav(false); render(); }
 function setActiveNav(){
   document.querySelectorAll('#navTabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===activeTab));
