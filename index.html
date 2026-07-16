@@ -272,6 +272,7 @@
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
   .form-grid .full{grid-column:1/-1}
   .form-grid input,.form-grid select,.form-grid textarea{width:100%}
+  .form-grid input[type=checkbox],.form-grid input[type=radio]{width:auto;flex:0 0 auto}   /* don't stretch checkboxes to full width */
 
   /* ---------- Toast ---------- */
   #toasts{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
@@ -4481,7 +4482,7 @@ function viewExport(){
     </div>
     <div class="btn-row">
       <button class="btn primary" onclick="downloadReport()">Download report (.html)</button>
-      <button class="btn" onclick="previewSnapshot()">Preview report</button>
+      <button class="btn" id="previewBtn" onclick="previewSnapshot()">Preview report</button>
       <button class="btn" onclick="copySnapshot()">Copy for Claude</button>
       <button class="btn sm" onclick="downloadSnapshot('md')">.md</button>
       <button class="btn sm" onclick="downloadSnapshot('txt')">.txt</button>
@@ -4530,7 +4531,7 @@ function viewExport(){
     ${S.usingSample? `<p class="mini"><b>Sample data is loaded.</b> Remove it before entering your own figures so the two don’t mix.</p>
       <button class="btn primary" onclick="removeSampleData()">Remove sample data</button>` 
       : `<p class="mini">No sample data present.</p>`}
-    <div style="margin-top:14px">
+    <div class="btn-row" style="margin-top:14px">
       <button class="btn" onclick="rerunWizard()">Re-run setup wizard</button>
       <button class="btn danger" onclick="deleteAllTransactions()">Delete all transactions</button>
       <button class="btn danger" onclick="resetAll()">Erase everything</button>
@@ -4854,7 +4855,9 @@ function downloadReport(){
   toast('Report downloaded — open it and use Print / Save as PDF','ok');
 }
 function rawPreview(){ const el=document.getElementById('exPreview'); if(el){ el.style.display='block'; el.textContent=buildSnapshot(); } }
-function previewSnapshot(){ const el=document.getElementById('exReport'); if(el){ el.style.display='block'; el.innerHTML=mdToHtml(buildSnapshot()); } }
+function previewSnapshot(){ const el=document.getElementById('exReport'); const btn=document.getElementById('previewBtn'); if(!el) return;
+  if(el.style.display==='block'){ el.style.display='none'; el.innerHTML=''; if(btn) btn.textContent='Preview report'; }
+  else { el.style.display='block'; el.innerHTML=mdToHtml(buildSnapshot()); if(btn) btn.textContent='Hide preview'; el.scrollIntoView({behavior:'smooth',block:'nearest'}); } }
 function copySnapshot(){
   const text=buildSnapshot();
   if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>toast('Snapshot copied to clipboard')).catch(()=>{ rawPreview(); toast('Copy blocked — select the preview text','warn'); }); }
