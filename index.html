@@ -398,7 +398,7 @@
   .snap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 28px;padding:4px 2px}
 .pa-grid{display:grid;grid-template-columns:96px repeat(4,1fr);gap:2px 28px;padding:4px 2px;align-items:stretch}
 .pa-rowlbl{display:flex;align-items:center;font-weight:700;font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
-@media(max-width:760px){.pa-grid{grid-template-columns:repeat(2,1fr)}.pa-rowlbl{grid-column:1/-1;padding-top:8px}}
+@media(max-width:760px){.pa-grid{grid-template-columns:1fr 1fr;grid-template-rows:repeat(5,auto);grid-auto-flow:column;column-gap:18px;row-gap:0}.pa-rowlbl{padding:0 0 5px;border-bottom:1px solid var(--line)}}
   .snap-item{display:flex;flex-direction:column;gap:3px;padding:11px 0;border-bottom:1px solid var(--line-2)}
   .snap-l{font-size:11.5px;color:var(--muted);font-weight:500}
   .snap-v{font-size:18px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
@@ -443,7 +443,15 @@
     .bp-row{grid-template-columns:130px 1fr 130px}
   }
   @media (max-width:880px){
-    .ov-hero{grid-template-columns:1fr}
+    /* metric cards two-up instead of full-width stacks */
+    .ov-hero{grid-template-columns:1fr 1fr;gap:12px}
+    .feature-card{grid-column:1 / -1;padding:18px}
+    .fc-top{flex-wrap:wrap;gap:6px}
+    .metric-card{min-height:0;padding:14px 15px}
+    .mc-value{font-size:22px;margin-top:8px}
+    .kpis{grid-template-columns:1fr 1fr;gap:10px}
+    /* financial snapshot two-up */
+    .snap-grid{grid-template-columns:1fr 1fr;column-gap:16px}
     .content{padding:16px 16px calc(72px + env(safe-area-inset-bottom))}
     .ov-title{font-size:23px}
     .fc-value{font-size:38px}
@@ -572,6 +580,13 @@
   .swatch.on::after{content:"";position:absolute;inset:0;display:flex;background:no-repeat center/14px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12l4 4L19 7'/></svg>")}
   .appear-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:9px;text-transform:uppercase;letter-spacing:.05em}
 
+  /* ---- mobile: two-up KPI/stat rows across all tabs ---- */
+  @media (max-width:880px){
+    .kpi-row{grid-template-columns:1fr 1fr;gap:10px}
+    .mini-grid{grid-template-columns:1fr 1fr}
+    .kpi{padding:13px 14px}
+    .kpi .val{font-size:20px}
+  }
 </style>
 <script>
   /* apply saved appearance prefs before paint to avoid flash */
@@ -2364,7 +2379,7 @@ function viewBudget(){
     const snap=(label,value,cls)=>`<div class="snap-item"><span class="snap-l">${label}</span><span class="snap-v ${cls||''}">${value}</span></div>`;
     return `
   <div class="card" style="margin-bottom:16px">
-    <div class="hd"><h3>Plan vs actual</h3><span class="sub" style="margin-left:auto">budget on top · actual beneath</span></div>
+    <div class="hd"><h3>Plan vs actual</h3><span class="sub" style="margin-left:auto">planned vs actual</span></div>
     <div class="bd">
       <div class="pa-grid">
         <div class="pa-rowlbl">Budget</div>
