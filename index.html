@@ -809,56 +809,62 @@
 <div class="more-sheet" id="moreSheet" role="dialog" aria-label="More"></div>
 
 <style>
-  /* ===== TV dashboard (non-interactive, no-scroll, 16:9) ===== */
+  /* ===== TV mode: the Overview tab, reformatted to fill a 16:9 screen with no scroll ===== */
   html.tv-mode .sidebar,html.tv-mode .topbar,html.tv-mode .bottombar,html.tv-mode .more-sheet,
-  html.tv-mode #globalFilters,html.tv-mode #content,html.tv-mode .scrim{display:none!important}
-  html.tv-mode,html.tv-mode body{overflow:hidden;height:100%}
-  #tvScreen{
-    position:fixed;inset:0;z-index:8000;background:var(--paper);color:var(--ink);
-    display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:auto 1fr 1fr 1fr;
-    gap:1.3vh 1vw;padding:2vh 1.8vw;font-family:var(--sans);overflow:hidden;cursor:default;
-  }
-  #tvScreen.hidden{display:none}
-  #tvScreen .tvh{grid-column:1/-1;display:flex;align-items:center;gap:1vw}
-  #tvScreen .tvh .mk{width:3.6vh;height:3.6vh;border-radius:.8vh;background:#000;display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 auto}
-  #tvScreen .tvh .mk svg{width:2.3vh;height:2.3vh}
-  #tvScreen .tvh .brand{font-size:clamp(1rem,2.4vh,2.2rem);font-weight:700;letter-spacing:-.02em}
-  #tvScreen .tvh .period{color:var(--muted);font-size:clamp(.85rem,1.9vh,1.6rem);margin-left:.4vw}
-  #tvScreen .tvh .sp{flex:1}
-  #tvScreen .tvh .clock{font-family:var(--mono);font-size:clamp(1rem,2.6vh,2.2rem);font-weight:600;letter-spacing:-.01em}
-  #tvScreen .tvh .upd{color:var(--muted-2);font-size:clamp(.7rem,1.5vh,1.15rem);margin-left:.9vw}
-  .tv-tile{background:var(--surface);border:1px solid var(--line);border-radius:1.4vh;padding:1.5vh 1.3vw;display:flex;flex-direction:column;justify-content:center;overflow:hidden;box-shadow:var(--shadow-card);min-height:0;min-width:0}
-  .tv-tile .lbl{font-size:clamp(.65rem,1.5vh,1.15rem);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:.7vh}
-  .tv-tile .big{font-size:clamp(1.4rem,5.2vh,4.4rem);font-weight:700;letter-spacing:-.03em;line-height:1;font-family:var(--mono)}
-  .tv-tile .big.pos{color:var(--teal)} .tv-tile .big.neg{color:var(--red)}
-  .tv-tile .sub{font-size:clamp(.75rem,1.7vh,1.3rem);color:var(--muted);margin-top:.9vh}
-  .tv-tile .sub .up{color:var(--teal)} .tv-tile .sub .down{color:var(--red)}
-  .tv-hero .big{font-size:clamp(2rem,8.5vh,7rem)}
-  .tv-trio{display:flex;gap:1vw;align-items:stretch}
-  .tv-trio>div{flex:1;min-width:0}
-  .tv-trio .tl{font-size:clamp(.6rem,1.4vh,1rem);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
-  .tv-trio .tv{font-size:clamp(1rem,3.4vh,2.6rem);font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.1}
-  .tv-trio .tv.pos{color:var(--teal)} .tv-trio .tv.neg{color:var(--red)}
-  .tv-bar{height:1.3vh;border-radius:1vh;background:var(--surface-2);overflow:hidden;margin-top:1.2vh;display:flex}
-  .tv-bar>span{height:100%;display:block}
-  .tv-cats{display:flex;flex-direction:column;gap:1vh;justify-content:center}
-  .tv-cats .row{display:flex;align-items:center;gap:.7vw;font-size:clamp(.7rem,1.7vh,1.2rem)}
-  .tv-cats .row .nm{width:38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
-  .tv-cats .row .tr{flex:1;height:1.2vh;background:var(--surface-2);border-radius:1vh;overflow:hidden}
-  .tv-cats .row .tr>span{display:block;height:100%;background:var(--blue);border-radius:1vh}
-  .tv-cats .row .amt{font-family:var(--mono);color:var(--muted);white-space:nowrap}
-  .tv-att{display:flex;flex-direction:column;gap:1vh;justify-content:center;font-size:clamp(.7rem,1.6vh,1.15rem)}
-  .tv-att .a{display:flex;gap:.7vw;align-items:flex-start;line-height:1.3}
-  .tv-att .dot{width:1vh;height:1vh;border-radius:50%;margin-top:.55vh;flex:0 0 auto;background:var(--muted)}
-  .tv-att .a.warn .dot{background:var(--amber)} .tv-att .a.bad .dot{background:var(--red)} .tv-att .a.good .dot{background:var(--teal)}
-  .tv-att .empty{color:var(--muted);display:flex;align-items:center;gap:.6vw}
-  .tv-chart{padding:1.2vh 1vw .6vh}
-  .tv-chart canvas{width:100%!important;height:100%!important}
-  .tv-exit-hint{position:fixed;bottom:1.6vh;right:1.4vw;z-index:8001;color:var(--muted);font-size:clamp(.7rem,1.4vh,1rem);background:var(--surface);border:1px solid var(--line);border-radius:1vh;padding:.6vh 1vw;opacity:0;transition:opacity .5s;pointer-events:none}
-  .tv-exit-hint.show{opacity:.9}
+  html.tv-mode #globalFilters,html.tv-mode .scrim{display:none!important}
+  html.tv-mode,html.tv-mode body{overflow:hidden;height:100%;background:var(--paper)}
+  html.tv-mode .app{min-height:0;height:100vh}
+  html.tv-mode .main{height:100vh;overflow:hidden}
+  html.tv-mode .content{max-width:none;width:100vw;height:100vh;padding:1.2vh 1.6vw;overflow:hidden}
+
+  /* compress the overview sections into a landscape, no-scroll layout */
+  html.tv-mode .ov-head{margin-bottom:1vh}
+  html.tv-mode .ov-head .btn{display:none}
+  html.tv-mode .ov-title{font-size:clamp(1.1rem,2.6vh,2.2rem);line-height:1.05}
+  html.tv-mode .ov-sub{font-size:clamp(.68rem,1.5vh,1.05rem);margin-top:.1vh}
+  html.tv-mode .ov-hero{grid-template-columns:1.5fr 1fr 1fr 1fr 1fr!important;grid-template-rows:auto!important;gap:.9vw!important;margin-bottom:1vh!important}
+  html.tv-mode .feature-card{grid-row:auto!important;padding:1.3vh 1vw!important}
+  html.tv-mode .metric-card{min-height:0!important;padding:1.1vh .9vw!important}
+  html.tv-mode .fc-value{font-size:clamp(1.3rem,4.2vh,3rem)!important;margin-top:.5vh!important}
+  html.tv-mode .fc-label{font-size:clamp(.68rem,1.5vh,1.05rem)}
+  html.tv-mode .fc-legend{font-size:clamp(.58rem,1.25vh,.9rem);margin-top:.6vh;gap:1vw}
+  html.tv-mode .fc-bar{margin-top:.7vh;height:.9vh}
+  html.tv-mode .feature-card .delta,html.tv-mode .metric-card .delta{font-size:clamp(.58rem,1.25vh,.88rem)}
+  html.tv-mode .mc-value{font-size:clamp(1rem,3vh,2.1rem)!important;margin-top:.3vh!important}
+  html.tv-mode .mc-label{font-size:clamp(.62rem,1.35vh,.95rem)}
+  html.tv-mode .mc-spacer{display:none}
+  html.tv-mode .card{margin-bottom:.7vh!important;border-radius:1vh;box-shadow:none}
+  html.tv-mode .card>.hd{padding:.8vh 1.1vw!important}
+  html.tv-mode .card .hd h3{font-size:clamp(.82rem,1.75vh,1.25rem)}
+  html.tv-mode .card>.bd{padding:.8vh 1.1vw!important}
+  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:.2vh 1.3vw!important}
+  html.tv-mode .snap-item{padding:.45vh 0!important;border-bottom:none!important}
+  html.tv-mode .snap-l{font-size:clamp(.6rem,1.3vh,.92rem)}
+  html.tv-mode .snap-v{font-size:clamp(.9rem,2vh,1.5rem)!important}
+  html.tv-mode .chart-wrap{height:auto!important}
+  html.tv-mode .chart-wrap.wide{height:15vh!important}
+  html.tv-mode .chart-wrap.tall{height:17vh!important}
+  html.tv-mode .ov-split{grid-template-columns:1.7fr 1fr!important;gap:1vw!important;margin-bottom:0!important}
+  html.tv-mode .ov-split .hd select{display:none}
+  html.tv-mode .att-list{gap:0}
+  html.tv-mode .att-row{padding:.6vh 2px!important;font-size:clamp(.64rem,1.4vh,1rem)}
+  html.tv-mode .att-row a{display:none}
+  html.tv-mode .att-clear b{font-size:clamp(.8rem,1.7vh,1.2rem)}
+  /* hide the tall Budget Progress section (budget is already shown in the hero) so everything fits */
+  html.tv-mode #content>.card:last-of-type{display:none}
+
+  /* fixed clock + exit affordances (only in tv-mode) */
+  html:not(.tv-mode) #tvClockBox,html:not(.tv-mode) #tvClickCatch,html:not(.tv-mode) .tv-exit-hint{display:none}
+  #tvClockBox{position:fixed;top:1.5vh;right:1.8vw;z-index:8001;display:flex;align-items:baseline;gap:.7vw;pointer-events:none}
+  #tvClockBox .clock{font-family:var(--mono);font-size:clamp(1rem,2.5vh,2rem);font-weight:700;color:var(--ink)}
+  #tvClockBox .upd{font-size:clamp(.62rem,1.3vh,.95rem);color:var(--muted-2)}
+  #tvClickCatch{position:fixed;inset:0;z-index:7998;background:transparent}
+  .tv-exit-hint{position:fixed;bottom:1.4vh;right:1.8vw;z-index:8001;color:var(--muted);font-size:clamp(.7rem,1.4vh,1rem);background:var(--surface);border:1px solid var(--line);border-radius:1vh;padding:.5vh 1vw;opacity:0;transition:opacity .5s;pointer-events:none}
+  .tv-exit-hint.show{opacity:.92}
 </style>
 
-<div id="tvScreen" class="hidden" aria-hidden="true" onclick="exitTVMode()"></div>
+<div id="tvClickCatch" onclick="exitTVMode()"></div>
+<div id="tvClockBox"><span class="clock" id="tvClock"></span><span class="upd" id="tvUpd"></span></div>
 <div class="tv-exit-hint" id="tvExitHint">Press Esc or click to exit</div>
 
 <div class="overlay hidden" id="overlay"><div id="modalHost"></div></div>
@@ -5251,132 +5257,64 @@ function loadSampleData(){
    BOOT
    ===================================================================== */
 /* =====================================================================
-   TV DASHBOARD — non-interactive, no-scroll, 16:9. Activated by #tv or the
-   Settings button. Reuses the existing metric functions; period is always
-   the current calendar month. Esc / click exits.
+   TV MODE — the Overview tab, reformatted to fill a 16:9 screen with no
+   scroll. Activated by #tv or the Settings button. Period is the current
+   month. Esc / click exits. Auto-refreshes every 5 min so an always-on TV
+   stays current; live clock in the corner.
    ===================================================================== */
-const TV_MARK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path></svg>';
-let tvTimers={clock:null,refresh:null}, tvLastUpdated=null, tvPrevFilter=null;
+let tvTimers={clock:null,refresh:null}, tvLastUpdated=null, tvPrevFilter=null, tvPrevTab=null;
 function isTVMode(){ return document.documentElement.classList.contains('tv-mode'); }
 function tvClockStr(d){ try{ return d.toLocaleTimeString(S?.settings?.locale||'en-US',{hour:'numeric',minute:'2-digit'}); }catch(e){ return d.toTimeString().slice(0,5); } }
 function updateTVClock(){
   const c=document.getElementById('tvClock'); if(c) c.textContent=tvClockStr(new Date());
-  const u=document.getElementById('tvUpd');
-  if(u && tvLastUpdated){ const m=Math.round((Date.now()-tvLastUpdated)/60000); u.textContent = m<1?'updated just now':('updated '+m+'m ago'); }
+  const u=document.getElementById('tvUpd'); if(u&&tvLastUpdated){ const m=Math.round((Date.now()-tvLastUpdated)/60000); u.textContent=m<1?'updated just now':('updated '+m+'m ago'); }
 }
-function tvBarSpan(color,pct){ return `<span style="width:${clamp(pct,0,100)}%;background:${color}"></span>`; }
-function renderTV(){
-  const host=document.getElementById('tvScreen'); if(!host || !S || !S.setupDone) return;
-  const now=new Date();
-  const mk=monthKey(now), prevMk=monthKey(new Date(now.getFullYear(),now.getMonth()-1,1));
-  const a=analyze(monthTx(mk)), pa=analyze(monthTx(prevMk));
-  const nw=netWorth();
-  const sr=savingsRate(a.income,a.spending);
-  const br=computeBudgetRemaining();
-  const cash=totalCash(), invv=totalInvest(), debt=totalDebt();
-  const em=emergencyMonths();
-  const inSum=a.income+a.spending, inPct=inSum>0?(a.income/inSum*100):50;
-  const usedPct=br.budget>0?(br.spent/br.budget*100):0;
-  const netDelta=a.net-pa.net;
-  const cats=Object.entries(a.byCat||{}).sort((x,y)=>y[1]-x[1]).slice(0,5);
-  const catMax=cats.length?Math.max(...cats.map(c=>c[1]),1):1;
-  const att=(typeof overviewAttention==='function')?overviewAttention(a,br).slice(0,4):[];
-  const toneCls={red:'bad',amber:'warn',note:'',good:'good'};
-  const tile=(gc,gr,cls,inner)=>`<div class="tv-tile ${cls||''}" style="grid-column:${gc};grid-row:${gr}">${inner}</div>`;
-  host.innerHTML=`
-    <div class="tvh">
-      <div class="mk">${TV_MARK}</div><span class="brand">Black Ink</span>
-      <span class="period">${esc(monthLabel(mk))}</span>
-      <span class="sp"></span>
-      <span class="clock" id="tvClock">${tvClockStr(now)}</span>
-      <span class="upd" id="tvUpd"></span>
-    </div>
-    ${tile('1/5','2','tv-hero',
-      `<div class="lbl">Net worth</div>
-       <div class="big ${nw.net>=0?'':'neg'}">${money(nw.net)}</div>
-       <div class="sub">Assets ${money(nw.assets)} · Debt ${money(nw.liab)}</div>`)}
-    ${tile('5/9','2','',
-      `<div class="lbl">Cash flow · this month</div>
-       <div class="tv-trio">
-         <div><div class="tl">In</div><div class="tv pos">${money(a.income)}</div></div>
-         <div><div class="tl">Out</div><div class="tv neg">${money(a.spending)}</div></div>
-         <div><div class="tl">Net</div><div class="tv ${a.net>=0?'pos':'neg'}">${money(a.net,true)}</div></div>
-       </div>
-       <div class="tv-bar">${tvBarSpan(cvar('--teal'),inPct)}${tvBarSpan(cvar('--muted-2'),100-inPct)}</div>`)}
-    ${tile('9/13','2','',
-      `<div class="lbl">Savings rate</div>
-       <div class="big ${sr>=0?'pos':'neg'}">${pct(sr,0)}</div>
-       <div class="sub">${netDelta>=0?'<span class="up">▲ '+money(netDelta)+'</span>':'<span class="down">▼ '+money(Math.abs(netDelta))+'</span>'} vs last month</div>`)}
-    ${tile('1/5','3','',
-      `<div class="lbl">Balances</div>
-       <div class="tv-trio">
-         <div><div class="tl">Cash</div><div class="tv">${money(cash)}</div></div>
-         <div><div class="tl">Invest</div><div class="tv">${money(invv)}</div></div>
-         <div><div class="tl">Debt</div><div class="tv ${debt>0?'neg':''}">${money(debt)}</div></div>
-       </div>`)}
-    ${tile('5/9','3','',
-      `<div class="lbl">Budget remaining</div>
-       <div class="big ${br.remaining>=0?'':'neg'}">${money(br.remaining)}</div>
-       <div class="tv-bar">${tvBarSpan(usedPct>100?cvar('--red'):cvar('--blue'),usedPct)}</div>
-       <div class="sub">${br.budget>0?money(br.spent)+' of '+money(br.budget)+' used':'No budget set'}</div>`)}
-    ${tile('9/13','3','',
-      `<div class="lbl">Emergency fund</div>
-       <div class="big ${em!=null&&em<3?'neg':(em!=null?'pos':'')}">${em!=null?em.toFixed(1):'—'}<span style="font-size:.4em;color:var(--muted);font-family:var(--sans)"> months</span></div>
-       <div class="sub">${em!=null?'of essential spending covered':'Add savings to track runway'}</div>`)}
-    <div class="tv-tile tv-chart" style="grid-column:1/7;grid-row:4"><canvas id="tvTrend"></canvas></div>
-    ${tile('7/10','4','',
-      `<div class="lbl">Top spending</div>
-       <div class="tv-cats">${cats.length?cats.map(([n,v])=>`<div class="row"><span class="nm">${esc(n)}</span><span class="tr"><span style="width:${clamp(v/catMax*100,3,100)}%"></span></span><span class="amt">${money(v)}</span></div>`).join(''):'<div class="empty">No spending yet</div>'}</div>`)}
-    ${tile('10/13','4','',
-      `<div class="lbl">Needs attention</div>
-       <div class="tv-att">${att.length?att.map(x=>`<div class="a ${toneCls[x.tone]||''}"><span class="dot"></span><span>${x.text}</span></div>`).join(''):'<div class="empty">✓ All clear</div>'}</div>`)}
-  `;
-  afterTV();
+function fitTVOverview(){
+  const c=document.getElementById('content'); if(!c) return;
+  c.style.transform='';
+  const availH=window.innerHeight, availW=window.innerWidth;
+  const h=c.scrollHeight, w=c.scrollWidth;
+  const k=Math.min(1, availH/h, availW/w);
+  if(k<0.999){ c.style.transformOrigin='top center'; c.style.transform='scale('+k+')'; }
+}
+function renderTVOverview(){
+  if(!isTVMode()) return;
+  activeTab='overview';
+  render();                 // the real Overview (+ its charts) into #content
   updateTVClock();
-}
-function afterTV(){
-  if(!window.Chart) return;
-  const months=last6Months();
-  const inc=[],sp=[],net=[];
-  months.forEach(mk=>{ const ma=analyze(monthTx(mk)); inc.push(ma.income); sp.push(ma.spending); net.push(ma.income-ma.spending); });
-  makeChart('tvTrend',{type:'bar',
-    data:{labels:months.map(m=>monthLabel(m).replace(/ \d{4}$/,'')),datasets:[
-      {type:'line',label:'Net',data:net,borderColor:cvar('--blue'),backgroundColor:'transparent',borderWidth:3,tension:.35,pointRadius:0,order:0},
-      {label:'Income',data:inc,backgroundColor:cvar('--teal'),borderRadius:4,maxBarThickness:26,order:1},
-      {label:'Spending',data:sp,backgroundColor:cvar('--muted-2'),borderRadius:4,maxBarThickness:26,order:1}]},
-    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'circle',padding:10,font:{size:11}}}},
-      scales:{y:{ticks:{callback:v=>money(v),font:{size:10}},grid:{color:cvar('--line-2'),drawBorder:false},border:{display:false}},x:{grid:{display:false,drawBorder:false},border:{display:false},ticks:{font:{size:10}}}}}});
+  requestAnimationFrame(fitTVOverview); [350,900,1600].forEach(ms=>setTimeout(fitTVOverview,ms));
 }
 function showTVExitHint(){ const h=document.getElementById('tvExitHint'); if(!h) return; h.classList.add('show'); setTimeout(()=>h.classList.remove('show'),3600); }
 function enterTVMode(opts={}){
-  if(!S || !S.setupDone){ toast('Finish setup first','warn'); return; }
-  if(!tvPrevFilter) tvPrevFilter={preset:filter.preset,account:filter.account,start:filter.start,end:filter.end};
+  if(!S||!S.setupDone){ toast('Finish setup first','warn'); return; }
+  if(!tvPrevFilter){ tvPrevFilter={preset:filter.preset,account:filter.account,start:filter.start,end:filter.end}; tvPrevTab=activeTab; }
   filter.preset='thisMonth'; filter.account='all';
   document.documentElement.classList.add('tv-mode');
-  const host=document.getElementById('tvScreen'); if(host) host.classList.remove('hidden');
   if(location.hash!=='#tv') location.hash='tv';
   tvLastUpdated=Date.now();
-  renderTV();
+  renderTVOverview();
   clearInterval(tvTimers.clock); tvTimers.clock=setInterval(updateTVClock,1000);
-  clearInterval(tvTimers.refresh); tvTimers.refresh=setInterval(async()=>{ try{ await loadState(); tvLastUpdated=Date.now(); if(isTVMode()) renderTV(); }catch(e){} },300000);
+  clearInterval(tvTimers.refresh); tvTimers.refresh=setInterval(async()=>{ try{ await loadState(); tvLastUpdated=Date.now(); if(isTVMode()) renderTVOverview(); }catch(e){} },300000);
   showTVExitHint();
   if(opts.fullscreen){ try{ const el=document.documentElement; if(el.requestFullscreen) el.requestFullscreen(); }catch(e){} }
 }
 function exitTVMode(){
   if(!isTVMode()) return;
   clearInterval(tvTimers.clock); clearInterval(tvTimers.refresh); tvTimers.clock=tvTimers.refresh=null;
+  const c=document.getElementById('content'); if(c) c.style.transform='';
   document.documentElement.classList.remove('tv-mode');
-  const host=document.getElementById('tvScreen'); if(host) host.classList.add('hidden');
   if(tvPrevFilter){ Object.assign(filter,tvPrevFilter); tvPrevFilter=null; }
+  if(tvPrevTab){ activeTab=tvPrevTab; tvPrevTab=null; }
   if(location.hash==='#tv'){ try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} }
   try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
-  if(S && S.setupDone) render();
+  if(S&&S.setupDone) render();
 }
 function maybeTVFromHash(){
-  if(location.hash==='#tv'){ if(S && S.setupDone && !isTVMode()) enterTVMode(); }
+  if(location.hash==='#tv'){ if(S&&S.setupDone&&!isTVMode()) enterTVMode(); }
   else if(isTVMode()){ exitTVMode(); }
 }
 window.addEventListener('hashchange', maybeTVFromHash);
+window.addEventListener('resize', ()=>{ if(isTVMode()) fitTVOverview(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && isTVMode()) exitTVMode(); });
 
 async function boot(){
