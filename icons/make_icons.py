@@ -7,7 +7,7 @@ Produces PNG icons in the icons/ folder. Re-run any time to regenerate.
 import os
 from PIL import Image, ImageDraw
 
-BLUE = (37, 99, 235)      # --blue  #2563eb
+BLUE = (0, 0, 0)          # black tile (Black Ink)
 BLUE_DK = (29, 78, 216)   # --blue-2 #1d4ed8
 WHITE = (255, 255, 255)
 HERE = os.path.dirname(os.path.abspath(__file__))
