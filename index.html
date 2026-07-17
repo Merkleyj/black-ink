@@ -890,6 +890,28 @@
 <div id="tvClockBox"><span class="clock" id="tvClock"></span><span class="upd" id="tvUpd"></span></div>
 <div class="tv-exit-hint" id="tvExitHint">Press Esc or click to exit</div>
 
+<style>
+  /* ===== Guided walkthrough / tour ===== */
+  #tourBlock{position:fixed;inset:0;z-index:7000;background:transparent}
+  #tourBlock.hidden,#tourSpot.hidden,#tourTip.hidden{display:none}
+  #tourSpot{position:fixed;z-index:7001;border-radius:12px;box-shadow:0 0 0 9999px rgba(8,14,22,.66);pointer-events:none;border:2px solid var(--blue);transition:left .25s ease,top .25s ease,width .25s ease,height .25s ease}
+  #tourTip{position:fixed;z-index:7002;width:340px;max-width:88vw;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:16px 18px 15px}
+  #tourTip h4{margin:0 0 6px;font-size:16px;letter-spacing:-.01em}
+  #tourTip p{margin:0;font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+  #tourTip .tour-ft{display:flex;align-items:center;gap:8px;margin-top:15px}
+  #tourTip .tour-dots{display:flex;gap:5px;margin-right:auto;flex-wrap:wrap}
+  #tourTip .tour-dot{width:6px;height:6px;border-radius:50%;background:var(--line)}
+  #tourTip .tour-dot.on{background:var(--blue);transform:scale(1.25)}
+  #tourTip .tour-skip{font-size:12px;color:var(--muted);cursor:pointer;padding:4px}
+  #tourTip .tour-skip:hover{color:var(--ink)}
+  #tourTip.center{left:50%!important;top:50%!important;transform:translate(-50%,-50%);width:420px;text-align:center}
+  #tourTip.center .tour-ft{justify-content:center}
+  #tourTip.center .tour-dots{margin:0 auto}
+</style>
+<div id="tourBlock" class="hidden"></div>
+<div id="tourSpot" class="hidden"></div>
+<div id="tourTip" class="hidden"></div>
+
 <div class="overlay hidden" id="overlay"><div id="modalHost"></div></div>
 <div id="toasts"></div>
 
@@ -4523,6 +4545,14 @@ function viewExport(){
     <p class="sub">Generate a snapshot to discuss with Claude, back up your data, or adjust preferences.</p></div></div>
 
   <div class="card">
+    <div class="hd"><h3>Getting started</h3><span class="sub" style="margin-left:auto">New here?</span></div>
+    <div class="bd">
+      <p class="mini">Take the guided walkthrough — a one-minute tour of every section and how to use it.</p>
+      <div class="btn-row" style="margin-top:12px"><button class="btn primary" onclick="startTour()">Take the walkthrough</button></div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="hd"><h3>Appearance</h3><span class="sub" style="margin-left:auto">Theme &amp; accent color</span></div>
     <div class="bd">
       <div class="appear-grid">
@@ -5138,7 +5168,7 @@ function wizAddIncome(){ const g=x=>document.getElementById(x); const name=g('wi
 function wizAddDebt(){ const g=x=>document.getElementById(x); const name=g('wdName').value.trim(); if(!name){ toast('Enter a name','warn'); return; } wiz.debts.push({name,type:g('wdType').value,currentBalance:parseFloat(g('wdBal').value)||0,apr:parseFloat(g('wdApr').value)||0,minPayment:parseFloat(g('wdMin').value)||0}); renderWizard(); }
 function wizAddInvest(){ const g=x=>document.getElementById(x); const name=g('wvName').value.trim(); if(!name){ toast('Enter a name','warn'); return; } wiz.investments.push({name,type:g('wvType').value,value:parseFloat(g('wvVal').value)||0}); renderWizard(); }
 
-function wizSkip(){ loadSampleData(); S.setupDone=true; save(); wiz=null; activeTab='overview'; toast('Loaded sample data — explore freely'); render(); }
+function wizSkip(){ loadSampleData(); S.setupDone=true; save(); wiz=null; activeTab='overview'; toast('Loaded sample data — explore freely'); render(); maybeStartTour(); }
 
 function wizFinish(){
   captureWizStep();
@@ -5153,7 +5183,7 @@ function wizFinish(){
   wiz.investments.forEach(v=>S.investments.push({id:uid('inv'),name:v.name,type:v.type,holdings:v.value>0?[{id:uid('hold'),ticker:'',name:'Total balance',quantity:1,avgPrice:v.value,costBasis:v.value,currentPrice:v.value,currentValue:v.value,contributions:v.value,dividends:0,fees:0,employerMatch:0,lastValuation:toISODate(new Date()),activity:[]}]:[]}));
   S.budgets.recurring={}; Object.keys(wiz.budget).forEach(sub=>{ S.budgets.recurring[categoryForSub(sub)+' › '+sub]=wiz.budget[sub]; });
   S.setupDone=true; S.usingSample=false;
-  save(); wiz=null; activeTab='overview'; toast('Setup complete'); render();
+  save(); wiz=null; activeTab='overview'; toast('Setup complete'); render(); maybeStartTour();
 }
 /* =====================================================================
    SAMPLE DATA (taxonomy: subcategory drives category)
@@ -5358,6 +5388,80 @@ window.addEventListener('hashchange', maybeTVFromHash);
 window.addEventListener('resize', ()=>{ if(isTVMode()) fitTVOverview(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && isTVMode()) exitTVMode(); });
 
+/* =====================================================================
+   GUIDED WALKTHROUGH — a spotlight tour for new users. Auto-starts once
+   after setup (skippable); replayable from Settings.
+   ===================================================================== */
+let tourIdx=0, tourActive=false;
+function navTarget(){ return (window.innerWidth<=880) ? document.getElementById('bottomBar') : (document.querySelector('.sidebar nav.tabs')||document.getElementById('navTabs')); }
+const TOUR=[
+  { center:true, title:'Welcome to Black Ink', text:'Here’s a quick tour of how everything works. It takes about a minute — you can skip any time.' },
+  { tab:'overview', target:navTarget, title:'Getting around', text:'Move between sections here — Overview, Transactions, Budget, Accounts, Debt, Investments and more.' },
+  { tab:'overview', target:()=>document.getElementById('globalFilters'), title:'Account & date filters', text:'Everything on screen respects these. Filter by account, and by date range — this month, last 90 days, year to date, or a custom range.' },
+  { tab:'overview', target:()=>document.querySelector('#content .ov-hero'), title:'Your dashboard', text:'The Overview is your at-a-glance picture: net cash flow, income, spending, budget left and net worth for the selected period.' },
+  { tab:'transactions', target:()=>document.querySelector('#content .filterbar'), title:'Transactions', text:'Every transaction lives here. Import a CSV from your bank or card, then search, filter and sort. This is the heart of the app.' },
+  { tab:'transactions', target:()=>document.querySelector('#content .cat-chip')||document.querySelector('#content .filterbar'), title:'Categorizing', text:'Tap a category chip to file a transaction, split one across categories, or tick several rows for bulk actions.' },
+  { tab:'budget', target:()=>document.getElementById('budCatWrap')||document.querySelector('#content .card'), title:'Budgets', text:'Set a monthly budget for each category (and subcategory). The bars show how much you have left as the month goes on.' },
+  { tab:'accounts', target:()=>document.querySelector('#content .card'), title:'Accounts', text:'Track balances for checking, savings, cash and credit cards. Reconcile to your statements to keep everything accurate.' },
+  { tab:'debt', target:()=>document.querySelector('#content .card'), title:'Debt payoff', text:'Log debts and payments, then compare payoff strategies (avalanche vs snowball) to see the fastest, cheapest route out.' },
+  { tab:'investments', target:()=>document.querySelector('#content .card'), title:'Investments', text:'Track holdings, contributions and employer match across retirement and brokerage accounts, separating growth from money you added.' },
+  { tab:'rules', target:()=>document.querySelector('#content .card'), title:'Categories & rules', text:'Teach Black Ink to file transactions automatically — a keyword like “VENMO” can always map to a category, so you categorize once.' },
+  { tab:'review', target:()=>document.querySelector('#content .card'), title:'Monthly review', text:'An automatic read-out comparing this period to the previous one — what changed, what stood out, and what to keep an eye on.' },
+  { tab:'export', target:()=>document.querySelector('#content .card'), title:'Settings & export', text:'Back up your data, export a report to discuss with Claude, change the theme, or launch the full-screen TV dashboard.' },
+  { tab:'overview', target:()=>document.getElementById('persistText')&&document.getElementById('persistText').closest('.foot'), title:'Auto-save & sync', text:'Your data saves automatically and syncs to your account across devices. This badge shows the current sync status.' },
+  { center:true, title:'You’re all set!', text:'Explore freely — nothing here is permanent, and you can replay this walkthrough any time from Settings. Happy budgeting!' },
+];
+function tourEl(id){ return document.getElementById(id); }
+function startTour(){ tourActive=true; tourIdx=0; tourEl('tourBlock').classList.remove('hidden'); showTourStep(); }
+function endTour(){ tourActive=false; ['tourBlock','tourSpot','tourTip'].forEach(id=>tourEl(id).classList.add('hidden')); if(S&&S.settings){ S.settings.tourSeen=true; save(); } }
+function tourNext(){ if(tourIdx<TOUR.length-1){ tourIdx++; showTourStep(); } else endTour(); }
+function tourBack(){ if(tourIdx>0){ tourIdx--; showTourStep(); } }
+function tourTipHTML(step){
+  const dots=TOUR.map((_,i)=>`<span class="tour-dot ${i===tourIdx?'on':''}"></span>`).join('');
+  const last=tourIdx===TOUR.length-1, first=tourIdx===0;
+  return `<h4>${esc(step.title)}</h4><p>${step.text}</p>
+    <div class="tour-ft"><div class="tour-dots">${dots}</div>
+      <span class="tour-skip" onclick="endTour()">${last?'':'Skip'}</span>
+      ${!first?'<button class="btn sm" onclick="tourBack()">Back</button>':''}
+      <button class="btn sm primary" onclick="tourNext()">${last?'Finish':'Next'}</button></div>`;
+}
+function showTourStep(){
+  const step=TOUR[tourIdx];
+  if(step.tab && activeTab!==step.tab){ activeTab=step.tab; if(typeof toggleNav==='function') toggleNav(false); if(typeof closeMoreSheet==='function') closeMoreSheet(); render(); }
+  positionTour(step);                       // measure now (getBoundingClientRect forces layout)
+  setTimeout(()=>{ if(tourActive) positionTour(step); }, 70);  // re-place after charts/async layout settle
+}
+function positionTour(step){
+  const spot=tourEl('tourSpot'), tip=tourEl('tourTip'), block=tourEl('tourBlock');
+  tip.innerHTML=tourTipHTML(step); tip.classList.remove('hidden');
+  const tgt = step.center ? null : (typeof step.target==='function' ? step.target() : null);
+  if(tgt){ try{ tgt.scrollIntoView({block:'center',inline:'nearest'}); }catch(e){} }   // pull below-fold targets into view first
+  const rr = tgt && tgt.getBoundingClientRect ? tgt.getBoundingClientRect() : null;
+  const onScreen = rr && rr.width>2 && rr.height>2 && rr.right>0 && rr.left<innerWidth && rr.bottom>0 && rr.top<innerHeight;
+  if(!onScreen){
+    spot.classList.add('hidden'); block.style.background='rgba(8,14,22,.66)';
+    tip.classList.add('center'); tip.style.left=''; tip.style.top='';
+    return;
+  }
+  block.style.background='transparent'; tip.classList.remove('center');
+  const pad=8;
+  spot.classList.remove('hidden');
+  spot.style.left=(rr.left-pad)+'px'; spot.style.top=(rr.top-pad)+'px'; spot.style.width=(rr.width+pad*2)+'px'; spot.style.height=(rr.height+pad*2)+'px';
+  const tw=tip.offsetWidth, th=tip.offsetHeight, vw=innerWidth, vh=innerHeight, gap=14;
+  let top;
+  if(rr.bottom+gap+th<=vh) top=rr.bottom+gap;
+  else if(rr.top-gap-th>=0) top=rr.top-gap-th;
+  else top=Math.max(gap, vh-th-gap);
+  let left=rr.left+rr.width/2-tw/2;
+  left=Math.max(gap, Math.min(left, vw-tw-gap));
+  tip.style.left=left+'px'; tip.style.top=top+'px';
+}
+function maybeStartTour(){
+  if(S&&S.setupDone&&S.settings&&!S.settings.tourSeen&&!isTVMode()&&location.hash!=='#tv'&&!tourActive){ setTimeout(()=>{ if(!isTVMode()) startTour(); },700); }
+}
+window.addEventListener('keydown', e=>{ if(e.key==='Escape'&&tourActive) endTour(); });
+window.addEventListener('resize', ()=>{ if(tourActive) positionTour(TOUR[tourIdx]); });
+
 async function boot(){
   await loadState();
   // Probe persistence so the badge is accurate from the start.
@@ -5367,6 +5471,7 @@ async function boot(){
   // First-ever run: state exists but setup not done and no accounts -> show wizard.
   render();
   maybeTVFromHash();   // deep-link to #tv (also fires after the sign-in gate, since boot runs post-auth)
+  maybeStartTour();    // first-run walkthrough (once, skippable)
 }
 /* The cloud layer (js/auth.js) decides when to run boot() — after a session
    is resolved, or immediately in local-only mode. It calls window.__blackInkBoot. */
