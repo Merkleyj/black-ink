@@ -816,7 +816,7 @@
   html.tv-mode .app{min-height:0;height:100vh}
   html.tv-mode .main{height:100vh;overflow:hidden}
   html.tv-mode .content{max-width:none;width:100vw;height:100vh;padding:1.2vh 1.4vw;overflow:hidden;
-    display:grid;grid-template-columns:1.5fr 1fr;grid-template-rows:auto auto 1.3fr 1.7fr;gap:.9vh 1vw}
+    display:grid;grid-template-columns:1.5fr 1fr;grid-template-rows:auto auto auto 1fr;gap:.9vh 1vw}
   html.tv-mode #content>*{min-width:0;min-height:0}
 
   /* place the real Overview sections into a 2-column TV grid */
@@ -849,11 +849,15 @@
   html.tv-mode .card>.hd{padding:.7vh 1.1vw!important;flex:0 0 auto}
   html.tv-mode .card .hd h3{font-size:clamp(.82rem,1.75vh,1.25rem)}
   html.tv-mode .card>.bd{padding:.7vh 1.1vw!important;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:.15vh 1.3vw!important;align-content:center;flex:1}
+  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:1.5vh 1.3vw!important;align-content:center;flex:0 0 auto;padding:.4vh 0}
   html.tv-mode .snap-item{padding:.2vh 0!important;border-bottom:none!important;line-height:1.12}
   html.tv-mode .snap-l{font-size:clamp(.5rem,1.1vh,.82rem);line-height:1.05}
   html.tv-mode .snap-v{font-size:clamp(.78rem,1.7vh,1.3rem)!important;line-height:1.1}
   html.tv-mode .chart-wrap{height:100%!important;min-height:0;flex:1}
+  html.tv-mode .card>.hd{flex-wrap:nowrap}
+  html.tv-mode .tv-legend{display:flex;gap:1vw;align-items:center;margin-left:1.2vw;font-size:clamp(.55rem,1.2vh,.9rem);color:var(--muted);white-space:nowrap}
+  html.tv-mode .tv-legend span{display:inline-flex;align-items:center;white-space:nowrap}
+  html.tv-mode .tv-legend i{display:inline-block;width:1vh;height:1vh;border-radius:2px;margin-right:.4vw}
 
   /* Needs Attention (ov-split): drop the Top Spending chart, let Attention fill */
   html.tv-mode .ov-split{display:block!important;height:100%}
@@ -5300,12 +5304,25 @@ function trimTVBudgetRows(){
   const bottom=cont.getBoundingClientRect().bottom;
   rows.forEach(r=>{ if(r.getBoundingClientRect().bottom>bottom+1) r.style.display='none'; });
 }
+/* Move the Cash Flow Trend legend off the chart (it was eating vertical space
+   and shrinking the bars) and into the card header, on the title's row. */
+function tvTrendLegendToHeader(){
+  const ch=(typeof charts!=='undefined')?charts.ovTrend:null; if(!ch) return;
+  if(ch.options?.plugins?.legend && ch.options.plugins.legend.display!==false){
+    ch.options.plugins.legend.display=false; try{ ch.update('none'); }catch(e){}
+  }
+  const card=[...document.querySelectorAll('.card')].find(c=>/Cash Flow Trend/i.test((c.querySelector('h3')||{}).textContent||''));
+  const hd=card&&card.querySelector('.hd'); if(!hd) return;
+  let leg=hd.querySelector('.tv-legend');
+  if(!leg){ leg=document.createElement('span'); leg.className='tv-legend'; const sub=hd.querySelector('.sub'); hd.insertBefore(leg, sub||null); }
+  leg.innerHTML=ch.data.datasets.map(d=>`<span><i style="background:${d.borderColor||d.backgroundColor}"></i>${esc(d.label)}</span>`).join('');
+}
 function renderTVOverview(){
   if(!isTVMode()) return;
   activeTab='overview';
   render();                 // the real Overview (+ its charts) into #content
   updateTVClock();
-  const settle=()=>{ trimTVBudgetRows(); fitTVOverview(); };
+  const settle=()=>{ tvTrendLegendToHeader(); trimTVBudgetRows(); fitTVOverview(); };
   requestAnimationFrame(settle); [350,900,1600].forEach(ms=>setTimeout(settle,ms));
 }
 function showTVExitHint(){ const h=document.getElementById('tvExitHint'); if(!h) return; h.classList.add('show'); setTimeout(()=>h.classList.remove('show'),3600); }
