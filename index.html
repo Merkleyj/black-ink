@@ -815,14 +815,23 @@
   html.tv-mode,html.tv-mode body{overflow:hidden;height:100%;background:var(--paper)}
   html.tv-mode .app{min-height:0;height:100vh}
   html.tv-mode .main{height:100vh;overflow:hidden}
-  html.tv-mode .content{max-width:none;width:100vw;height:100vh;padding:1.2vh 1.6vw;overflow:hidden}
+  html.tv-mode .content{max-width:none;width:100vw;height:100vh;padding:1.2vh 1.4vw;overflow:hidden;
+    display:grid;grid-template-columns:1.5fr 1fr;grid-template-rows:auto auto 1.05fr 1.95fr;gap:1vh 1vw}
+  html.tv-mode #content>*{min-width:0;min-height:0}
 
-  /* compress the overview sections into a landscape, no-scroll layout */
-  html.tv-mode .ov-head{margin-bottom:1vh}
+  /* place the real Overview sections into a 2-column TV grid */
+  html.tv-mode #content>div:nth-of-type(1){grid-column:1/-1;grid-row:1;margin:0}            /* ov-head */
+  html.tv-mode #content>div:nth-of-type(2){grid-column:1/-1;grid-row:2;margin:0!important}   /* ov-hero */
+  html.tv-mode #content>div:nth-of-type(3){grid-column:1;grid-row:3}                          /* Financial Snapshot */
+  html.tv-mode #content>div:nth-of-type(5){grid-column:2;grid-row:3;margin:0!important}        /* ov-split -> Needs Attention */
+  html.tv-mode #content>div:nth-of-type(4){grid-column:1;grid-row:4}                          /* Cash Flow Trend */
+  html.tv-mode #content>div:nth-of-type(6){grid-column:2;grid-row:4}                          /* Budget Progress */
+
+  html.tv-mode .ov-head{margin:0}
   html.tv-mode .ov-head .btn{display:none}
   html.tv-mode .ov-title{font-size:clamp(1.1rem,2.6vh,2.2rem);line-height:1.05}
   html.tv-mode .ov-sub{font-size:clamp(.68rem,1.5vh,1.05rem);margin-top:.1vh}
-  html.tv-mode .ov-hero{grid-template-columns:1.5fr 1fr 1fr 1fr 1fr!important;grid-template-rows:auto!important;gap:.9vw!important;margin-bottom:1vh!important}
+  html.tv-mode .ov-hero{grid-template-columns:1.5fr 1fr 1fr 1fr 1fr!important;grid-template-rows:auto!important;gap:.9vw!important}
   html.tv-mode .feature-card{grid-row:auto!important;padding:1.3vh 1vw!important}
   html.tv-mode .metric-card{min-height:0!important;padding:1.1vh .9vw!important}
   html.tv-mode .fc-value{font-size:clamp(1.3rem,4.2vh,3rem)!important;margin-top:.5vh!important}
@@ -833,25 +842,34 @@
   html.tv-mode .mc-value{font-size:clamp(1rem,3vh,2.1rem)!important;margin-top:.3vh!important}
   html.tv-mode .mc-label{font-size:clamp(.62rem,1.35vh,.95rem)}
   html.tv-mode .mc-spacer{display:none}
-  html.tv-mode .card{margin-bottom:.7vh!important;border-radius:1vh;box-shadow:none}
-  html.tv-mode .card>.hd{padding:.8vh 1.1vw!important}
+
+  /* every card fills its container; body flexes so charts/lists fill the height */
+  html.tv-mode .card{margin:0!important;border-radius:1vh;box-shadow:none;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+  html.tv-mode .card>.hd{padding:.7vh 1.1vw!important;flex:0 0 auto}
   html.tv-mode .card .hd h3{font-size:clamp(.82rem,1.75vh,1.25rem)}
-  html.tv-mode .card>.bd{padding:.8vh 1.1vw!important}
-  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:.2vh 1.3vw!important}
-  html.tv-mode .snap-item{padding:.45vh 0!important;border-bottom:none!important}
-  html.tv-mode .snap-l{font-size:clamp(.6rem,1.3vh,.92rem)}
-  html.tv-mode .snap-v{font-size:clamp(.9rem,2vh,1.5rem)!important}
-  html.tv-mode .chart-wrap{height:auto!important}
-  html.tv-mode .chart-wrap.wide{height:15vh!important}
-  html.tv-mode .chart-wrap.tall{height:17vh!important}
-  html.tv-mode .ov-split{grid-template-columns:1.7fr 1fr!important;gap:1vw!important;margin-bottom:0!important}
-  html.tv-mode .ov-split .hd select{display:none}
-  html.tv-mode .att-list{gap:0}
-  html.tv-mode .att-row{padding:.6vh 2px!important;font-size:clamp(.64rem,1.4vh,1rem)}
+  html.tv-mode .card>.bd{padding:.7vh 1.1vw!important;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:.2vh 1.3vw!important;align-content:center;flex:1}
+  html.tv-mode .snap-item{padding:.4vh 0!important;border-bottom:none!important}
+  html.tv-mode .snap-l{font-size:clamp(.58rem,1.25vh,.9rem)}
+  html.tv-mode .snap-v{font-size:clamp(.85rem,1.9vh,1.45rem)!important}
+  html.tv-mode .chart-wrap{height:100%!important;min-height:0;flex:1}
+
+  /* Needs Attention (ov-split): drop the Top Spending chart, let Attention fill */
+  html.tv-mode .ov-split{display:block!important;height:100%}
+  html.tv-mode .ov-split>.card:first-child{display:none}
+  html.tv-mode .ov-split>.card:last-child{height:100%}
+  html.tv-mode .att-list{gap:0;justify-content:center;flex:1;display:flex;flex-direction:column}
+  html.tv-mode .att-row{padding:.8vh 2px!important;font-size:clamp(.66rem,1.5vh,1.05rem)}
   html.tv-mode .att-row a{display:none}
   html.tv-mode .att-clear b{font-size:clamp(.8rem,1.7vh,1.2rem)}
-  /* hide the tall Budget Progress section (budget is already shown in the hero) so everything fits */
-  html.tv-mode #content>.card:last-of-type{display:none}
+
+  /* Budget Progress compact */
+  html.tv-mode .bp-overall{margin-bottom:.9vh!important;gap:1vw!important;flex:0 0 auto}
+  html.tv-mode .bp-overall .bp-big{font-size:clamp(.95rem,2.2vh,1.7rem)!important}
+  html.tv-mode .bp-rows{gap:.5vh!important;flex:1;justify-content:center;display:flex;flex-direction:column}
+  html.tv-mode .bp-row{grid-template-columns:26% 1fr 32%!important;gap:.8vw!important;align-items:center}
+  html.tv-mode .bp-name{font-size:clamp(.62rem,1.35vh,1rem)!important}
+  html.tv-mode .bp-fig{font-size:clamp(.56rem,1.2vh,.9rem)!important;text-align:right}
 
   /* fixed clock + exit affordances (only in tv-mode) */
   html:not(.tv-mode) #tvClockBox,html:not(.tv-mode) #tvClickCatch,html:not(.tv-mode) .tv-exit-hint{display:none}
@@ -1947,7 +1965,10 @@ function viewOverview(){
       <div class="ov-title">Overview</div>
       <p class="ov-sub">${esc(rangeLabel())} · ${a.count} transactions · ${filter.account==='all'?'all accounts':esc(accountFilterName())}</p>
     </div>
-    <button class="btn primary" onclick="openImport()"><span class="bic">${_ic('<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 20h16"/>')}</span> Import CSV</button>
+    <div class="ph-actions">
+      <button class="btn" onclick="enterTVMode({fullscreen:true})" title="Full-screen dashboard for a TV — press Esc to exit"><span class="bic">${_ic('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>')}</span> TV mode</button>
+      <button class="btn primary" onclick="openImport()"><span class="bic">${_ic('<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 20h16"/>')}</span> Import CSV</button>
+    </div>
   </div>
 
   <div class="ov-hero">
@@ -4495,15 +4516,6 @@ function viewExport(){
   return `
   <div class="page-head"><div><h1>Export &amp; settings</h1>
     <p class="sub">Generate a snapshot to discuss with Claude, back up your data, or adjust preferences.</p></div></div>
-
-  <div class="card">
-    <div class="hd"><h3>TV dashboard</h3><span class="sub" style="margin-left:auto">Full-screen glanceable view</span></div>
-    <div class="bd">
-      <p class="mini">A non-interactive, full-screen summary for a TV or spare monitor — net worth, this month's cash flow, budget, balances, a 6-month trend, and alerts. Press <b>Esc</b> or click to exit.</p>
-      <div class="btn-row" style="margin-top:12px"><button class="btn primary" onclick="enterTVMode({fullscreen:true})">Display on TV</button></div>
-      <p class="mini" style="margin-top:10px">Always-on TV? Open <code>${esc(location.origin+location.pathname)}#tv</code> directly in the TV's browser and sign in once.</p>
-    </div>
-  </div>
 
   <div class="card">
     <div class="hd"><h3>Appearance</h3><span class="sub" style="margin-left:auto">Theme &amp; accent color</span></div>
