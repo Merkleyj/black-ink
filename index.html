@@ -816,7 +816,7 @@
   html.tv-mode .app{min-height:0;height:100vh}
   html.tv-mode .main{height:100vh;overflow:hidden}
   html.tv-mode .content{max-width:none;width:100vw;height:100vh;padding:1.2vh 1.4vw;overflow:hidden;
-    display:grid;grid-template-columns:1.5fr 1fr;grid-template-rows:auto auto 1.05fr 1.95fr;gap:1vh 1vw}
+    display:grid;grid-template-columns:1.5fr 1fr;grid-template-rows:auto auto 1.3fr 1.7fr;gap:.9vh 1vw}
   html.tv-mode #content>*{min-width:0;min-height:0}
 
   /* place the real Overview sections into a 2-column TV grid */
@@ -834,10 +834,11 @@
   html.tv-mode .ov-hero{grid-template-columns:1.5fr 1fr 1fr 1fr 1fr!important;grid-template-rows:auto!important;gap:.9vw!important}
   html.tv-mode .feature-card{grid-row:auto!important;grid-column:auto!important;padding:1.3vh 1vw!important}
   html.tv-mode .metric-card{min-height:0!important;padding:1.1vh .9vw!important}
-  html.tv-mode .fc-value{font-size:clamp(1.3rem,4.2vh,3rem)!important;margin-top:.5vh!important}
-  html.tv-mode .fc-label{font-size:clamp(.68rem,1.5vh,1.05rem)}
-  html.tv-mode .fc-legend{font-size:clamp(.58rem,1.25vh,.9rem);margin-top:.6vh;gap:1vw}
-  html.tv-mode .fc-bar{margin-top:.7vh;height:.9vh}
+  html.tv-mode .fc-value{font-size:clamp(1.3rem,3.6vh,2.6rem)!important;margin-top:.4vh!important}
+  html.tv-mode .fc-label{font-size:clamp(.68rem,1.5vh,1.05rem);white-space:nowrap}
+  html.tv-mode .feature-card .fc-legend{display:none}   /* trim fluff to shorten the hero row */
+  html.tv-mode .feature-card .fc-bar{display:none}
+  html.tv-mode .feature-card .fc-top .pill{display:none}   /* redundant with the header period */
   html.tv-mode .feature-card .delta,html.tv-mode .metric-card .delta{font-size:clamp(.58rem,1.25vh,.88rem)}
   html.tv-mode .mc-value{font-size:clamp(1rem,3vh,2.1rem)!important;margin-top:.3vh!important}
   html.tv-mode .mc-label{font-size:clamp(.62rem,1.35vh,.95rem)}
@@ -848,10 +849,10 @@
   html.tv-mode .card>.hd{padding:.7vh 1.1vw!important;flex:0 0 auto}
   html.tv-mode .card .hd h3{font-size:clamp(.82rem,1.75vh,1.25rem)}
   html.tv-mode .card>.bd{padding:.7vh 1.1vw!important;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:.2vh 1.3vw!important;align-content:center;flex:1}
-  html.tv-mode .snap-item{padding:.4vh 0!important;border-bottom:none!important}
-  html.tv-mode .snap-l{font-size:clamp(.58rem,1.25vh,.9rem)}
-  html.tv-mode .snap-v{font-size:clamp(.85rem,1.9vh,1.45rem)!important}
+  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:.15vh 1.3vw!important;align-content:center;flex:1}
+  html.tv-mode .snap-item{padding:.2vh 0!important;border-bottom:none!important;line-height:1.12}
+  html.tv-mode .snap-l{font-size:clamp(.5rem,1.1vh,.82rem);line-height:1.05}
+  html.tv-mode .snap-v{font-size:clamp(.78rem,1.7vh,1.3rem)!important;line-height:1.1}
   html.tv-mode .chart-wrap{height:100%!important;min-height:0;flex:1}
 
   /* Needs Attention (ov-split): drop the Top Spending chart, let Attention fill */
@@ -864,9 +865,9 @@
   html.tv-mode .att-clear b{font-size:clamp(.8rem,1.7vh,1.2rem)}
 
   /* Budget Progress compact */
-  html.tv-mode .bp-overall{margin-bottom:.9vh!important;gap:1vw!important;flex:0 0 auto}
-  html.tv-mode .bp-overall .bp-big{font-size:clamp(.95rem,2.2vh,1.7rem)!important}
-  html.tv-mode .bp-rows{gap:.5vh!important;flex:1;justify-content:center;display:flex;flex-direction:column}
+  html.tv-mode .bp-overall{margin-bottom:.6vh!important;gap:.7vw!important;flex:0 0 auto}
+  html.tv-mode .bp-overall .bp-big{font-size:clamp(.8rem,1.8vh,1.35rem)!important}
+  html.tv-mode .bp-rows{gap:.35vh!important;flex:1;min-height:0;justify-content:flex-start;display:flex;flex-direction:column;overflow:hidden}
   html.tv-mode .bp-row{grid-template-columns:26% 1fr 32%!important;gap:.8vw!important;align-items:center}
   html.tv-mode .bp-name{font-size:clamp(.62rem,1.35vh,1rem)!important}
   html.tv-mode .bp-fig{font-size:clamp(.56rem,1.2vh,.9rem)!important;text-align:right}
@@ -5289,12 +5290,23 @@ function fitTVOverview(){
   const k=Math.min(1, availH/h, availW/w);
   if(k<0.999){ c.style.transformOrigin='top center'; c.style.transform='scale('+k+')'; }
 }
+/* Budget rows are pre-sorted by usage% (over/closest to 100% first). Hide any
+   that overflow their box so we cleanly show the most relevant ones that fit. */
+function trimTVBudgetRows(){
+  const rows=[...document.querySelectorAll('.bp-rows .bp-row')];
+  if(!rows.length) return;
+  const cont=rows[0].parentElement;
+  rows.forEach(r=>r.style.display='');
+  const bottom=cont.getBoundingClientRect().bottom;
+  rows.forEach(r=>{ if(r.getBoundingClientRect().bottom>bottom+1) r.style.display='none'; });
+}
 function renderTVOverview(){
   if(!isTVMode()) return;
   activeTab='overview';
   render();                 // the real Overview (+ its charts) into #content
   updateTVClock();
-  requestAnimationFrame(fitTVOverview); [350,900,1600].forEach(ms=>setTimeout(fitTVOverview,ms));
+  const settle=()=>{ trimTVBudgetRows(); fitTVOverview(); };
+  requestAnimationFrame(settle); [350,900,1600].forEach(ms=>setTimeout(settle,ms));
 }
 function showTVExitHint(){ const h=document.getElementById('tvExitHint'); if(!h) return; h.classList.add('show'); setTimeout(()=>h.classList.remove('show'),3600); }
 function enterTVMode(opts={}){
