@@ -1,5 +1,7 @@
 # Black Ink — Personal Finance PWA
 
+**Live at [blackinkhq.com](https://blackinkhq.com)** · full-screen TV dashboard at [blackinkhq.com/#tv](https://blackinkhq.com/#tv)
+
 An offline-first personal finance dashboard: budgets, transactions, debt
 payoff, investments, and net worth — now a full **installable PWA** with
 **accounts and cloud sync** (Supabase), hostable free on **GitHub Pages**.
@@ -83,9 +85,9 @@ In **Authentication → Providers / URL Configuration**:
   Supabase shows you: `https://YOURPROJECT.supabase.co/auth/v1/callback`.
 - **Redirect URLs**: under **Authentication → URL Configuration**, add every
   origin the app is served from to **Redirect URLs**, e.g.:
-  - `http://127.0.0.1:8765/*` and `http://localhost:8765/*` (local dev)
-  - `https://YOURNAME.github.io/black-ink/*` (GitHub Pages — see below)
-  and set **Site URL** to your production URL.
+  - `http://127.0.0.1:8765/**` and `http://localhost:8765/**` (local dev)
+  - `https://blackinkhq.com/**` and `https://www.blackinkhq.com/**` (production)
+  and set **Site URL** to `https://blackinkhq.com`.
 
 That's it — reload the app and you'll get the sign-in screen.
 
@@ -103,9 +105,25 @@ That's it — reload the app and you'll get the sign-in screen.
    ```
 2. On GitHub: **Settings → Pages → Build and deployment → Source: Deploy from
    a branch**, choose `main` / `/ (root)`, Save.
-3. Your app is at `https://YOURNAME.github.io/black-ink/`.
-4. Add that URL (with `/*`) to Supabase **Redirect URLs** and set it as the
-   **Site URL** (step 3 above). Update Google's authorized origins if needed.
+3. Your app is served at `https://YOURNAME.github.io/black-ink/` (and, with the
+   custom domain below, at **https://blackinkhq.com**).
+4. Add the production URL (with `/**`) to Supabase **Redirect URLs** and set it
+   as the **Site URL** (step 3 above). Update Google's authorized origins if needed.
+
+### Custom domain (this deploy: blackinkhq.com)
+
+This repo is live at **https://blackinkhq.com** via a GitHub Pages custom domain:
+
+- A repo-root **`CNAME`** file contains `blackinkhq.com` (keeps the custom domain
+  set across deploys — don't delete it).
+- **DNS (Cloudflare):** four `A` records on the apex → GitHub Pages
+  (`185.199.108.153`, `.109.153`, `.110.153`, `.111.153`) plus a `www` `CNAME`
+  → `merkleyj.github.io`, all set to **DNS only** (grey cloud) so GitHub issues
+  the TLS cert.
+- **GitHub → Settings → Pages:** custom domain `blackinkhq.com` with **Enforce
+  HTTPS** enabled.
+- After any domain change, update the Supabase **Site URL** / **Redirect URLs**
+  and Google's authorized origins (see the Auth section above), or sign-in breaks.
 
 All paths in the app are relative, so it works correctly under the
 `/black-ink/` sub-path. (Prefer a custom domain or a root deploy? Put it in a
