@@ -921,6 +921,7 @@
 <script src="js/supabase.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/plaid.js"></script>
 
 <script>
 /* =====================================================================
@@ -3088,6 +3089,18 @@ function viewAccounts(){
     <button class="btn" onclick="addManualAsset()">+ Add asset/liability (car, home…)</button>
     <label class="checkrow" style="margin-left:auto"><input type="checkbox" ${filter.includeInactive?'checked':''} onchange="filter.includeInactive=this.checked;render()"> Show inactive</label>
   </div>
+
+  ${window.BlackInkPlaid ? `<div class="card feature" style="margin-bottom:16px"><div class="bd" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:650">Link a bank <span class="pill">beta · sandbox</span></div>
+        <div class="mini">Automatically import transactions and balances. Powered by Plaid — your bank login is handled by Plaid and never seen by Black Ink.</div>
+      </div>
+      <button class="btn primary" onclick="BlackInkPlaid.connectBank()">Connect a bank</button>
+      ${(S.accounts.some(a=>a.plaidAccountId)) ? `<button class="btn" id="plaidSyncBtn" onclick="BlackInkPlaid.syncNow()">Sync now</button>` : ''}
+    </div>
+    ${(()=>{ const linked=S.accounts.filter(a=>a.plaidAccountId); return linked.length ? `<div class="mini" style="margin-top:10px">Linked accounts: ${linked.map(a=>esc(a.name)).join(', ')}</div>` : ''; })()}
+  </div></div>` : ''}
 
   <div class="two-col">
     <div><h3 style="margin-bottom:10px;font-size:14px">Assets</h3>${assets.length?assets.map(acctCard).join(''):'<div class="card"><div class="bd">'+emptyState('No asset accounts','Add checking, savings, or cash accounts.','')+'</div></div>'}

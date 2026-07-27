@@ -5,7 +5,7 @@
    is never intercepted, so sign-in and sync always hit the network.
    Bump CACHE_VERSION whenever shell files change to roll the cache.
    ===================================================================== */
-const CACHE_VERSION = 'black-ink-v1';
+const CACHE_VERSION = 'black-ink-v2';
 
 // Paths are relative to the SW's scope, so this works on GitHub Pages
 // sub-paths (username.github.io/black-ink/) as well as at a domain root.
@@ -17,6 +17,7 @@ const SHELL = [
   './js/supabase.js',
   './js/auth.js',
   './js/sync.js',
+  './js/plaid.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-192.png',
