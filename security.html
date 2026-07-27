@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Black Ink — Information Security Policy</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<style>
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a2b33;max-width:820px;margin:0 auto;padding:48px 56px;line-height:1.6;font-size:15px}
+  h1{font-size:26px;margin:0 0 2px;letter-spacing:-.01em}
+  .meta{color:#5b6b73;font-size:13px;margin-bottom:28px}
+  h2{font-size:18px;margin:30px 0 10px;padding-bottom:6px;border-bottom:2px solid #0f1b2e}
+  p{margin:8px 0}
+  ul{margin:8px 0 8px 22px} li{margin:4px 0}
+  strong{color:#11212a}
+  @media print{ body{padding:0;max-width:none} h2{break-after:avoid} }
+</style>
+</head>
+<body>
+<h1>Information Security Policy</h1>
+<p class="meta">Black Ink (blackinkhq.com) · Operated by Jacob Merkley, sole proprietor · Version 1.0 · Adopted July 2026 · Reviewed at least annually</p>
+
+<h2>1. Purpose and scope</h2>
+<p>This policy documents how Black Ink identifies, mitigates, and monitors information security risks. It covers the Black Ink web application, its cloud infrastructure, third-party service integrations (including Plaid), and all user financial data handled by the service. Black Ink is operated by a single individual, who is responsible for every control described here.</p>
+
+<h2>2. System architecture and data flow</h2>
+<ul>
+  <li>The client application is a <strong>static progressive web app</strong> served over HTTPS from GitHub Pages at blackinkhq.com. There is no self-managed server infrastructure.</li>
+  <li>All server-side logic runs on <strong>Supabase</strong>, a managed cloud platform hosted on AWS: managed Postgres for storage and serverless Edge Functions for bank-data integration.</li>
+  <li>All bank-aggregation API calls (Plaid) are made <strong>exclusively server-side</strong> by an Edge Function. The client never communicates with Plaid's API directly and never possesses Plaid credentials or access tokens.</li>
+  <li>Bank login credentials are entered only in Plaid's own hosted Link interface; <strong>Black Ink never sees, transmits, or stores bank usernames or passwords</strong>.</li>
+</ul>
+
+<h2>3. Access control</h2>
+<ul>
+  <li>Administrative access to all infrastructure (Supabase, GitHub, Cloudflare, Plaid dashboard) is held solely by the operator, protected by unique strong passwords and <strong>multi-factor authentication</strong>.</li>
+  <li>End users authenticate through Supabase Auth (email/password with verification, magic link, or Google OAuth). Sessions use short-lived JWTs with automatic refresh.</li>
+  <li><strong>Row-level security (RLS)</strong> is enforced on every database table. Each user can read and write only rows bound to their own authenticated user ID. Plaid access tokens are stored in a table with RLS enabled and <em>no client access policies at all</em> — they are reachable only by the server-side service role.</li>
+  <li>Server-side requests are authorized per-user: the Edge Function validates the caller's JWT before acting, and acts only on that user's data.</li>
+</ul>
+
+<h2>4. Data protection</h2>
+<ul>
+  <li><strong>In transit:</strong> all traffic — client to app, client to Supabase, server to Plaid — is encrypted with TLS (HTTPS). The production domain enforces HTTPS.</li>
+  <li><strong>At rest:</strong> data resides in Supabase managed Postgres, encrypted at rest by the platform (AES-256 on AWS infrastructure).</li>
+  <li><strong>Secrets:</strong> Plaid API credentials and service-role keys are stored in Supabase's encrypted secrets manager, are excluded from source control, and never appear in client code. The repository contains only the public anon key, which is protected by RLS and safe by design.</li>
+  <li><strong>Data minimization:</strong> Black Ink stores only what the product needs — transactions, balances, and account metadata. Full account numbers, bank credentials, SSNs, and government IDs are never collected or stored. Financial data is used solely to display each user's own finances back to them; it is never sold or shared with third parties.</li>
+</ul>
+
+<h2>5. Change management and software integrity</h2>
+<ul>
+  <li>All application code is version-controlled in Git with full history. Changes are reviewed and tested locally before deployment.</li>
+  <li>Deployments are reproducible: static hosting builds from the main branch; Edge Functions are deployed through Supabase's tooling.</li>
+  <li>Third-party dependencies are deliberately minimal (Chart.js, Supabase client, Plaid Link) and vendored or version-pinned; they are updated when security releases warrant.</li>
+</ul>
+
+<h2>6. Monitoring and incident response</h2>
+<ul>
+  <li>Supabase provides authentication logs, database logs, and Edge Function logs, which are reviewed when anomalies are suspected; Plaid's dashboard provides API monitoring for the bank integration.</li>
+  <li>In the event of a suspected breach the operator will: (1) revoke and rotate affected credentials and tokens, including de-authorizing Plaid items; (2) assess scope using platform logs; (3) notify affected users by email without undue delay, with a factual description and recommended actions; (4) remediate the root cause before restoring service.</li>
+  <li>Because the platform surface is small (one static site, one database, one function), rotation and shutdown can be executed within minutes.</li>
+</ul>
+
+<h2>7. Data retention and deletion</h2>
+<ul>
+  <li>Users may delete their transactions or their entire dataset at any time from within the app.</li>
+  <li>Deleting a user account cascades to all of that user's rows, including stored Plaid access tokens; linked bank connections are de-authorized with Plaid on unlink.</li>
+  <li>Users can export their complete data (JSON/CSV) at any time.</li>
+</ul>
+
+<h2>8. Physical security</h2>
+<p>Black Ink operates no physical infrastructure. Physical security of servers is inherited from the cloud providers (AWS via Supabase; GitHub; Cloudflare), each of which maintains industry-standard certifications (e.g., SOC 2) for their platforms. Operator devices used for administration are password-protected, kept updated, and used only by the operator.</p>
+
+<h2>9. Review</h2>
+<p>This policy is reviewed and updated at least annually, and whenever the architecture changes materially (for example, new data categories, new third-party integrations, or a move away from the current managed platforms).</p>
+</body>
+</html>
