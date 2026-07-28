@@ -1,8 +1,11 @@
 /* =====================================================================
-   Black Ink — Plaid connect (frontend, Phase 1: sandbox)
+   Black Ink — Plaid connect (frontend)
    Drives Plaid Link, calls the `plaid` Edge Function, and maps the returned
-   accounts + transactions into the app's existing model (S.accounts /
-   S.transactions), reusing dedup + auto-categorization rules.
+   data into the app's model: depository/credit accounts → S.accounts +
+   S.transactions (dedup + auto-categorization), loans + liabilities data →
+   S.debts (balance, APR, min payment, due day), investment accounts +
+   holdings → S.investments. Also: silent auto-sync on app open (6h throttle)
+   and Link update-mode reconnect for expired bank logins.
    Requires cloud mode + a signed-in user (the Edge Function is per-user).
    ===================================================================== */
 (function () {
@@ -67,8 +70,10 @@
     try {
       const data = await invoke('sync');
       const res = mapPlaidData(data);
+      S.plaidLastSync = Date.now();
       save(); render();
-      toast(`Synced — ${res.imported} new, ${res.updated} updated${res.removed ? ', ' + res.removed + ' removed' : ''}`, 'ok');
+      if ((S.plaidReauth || []).length) toast('A bank connection needs to be reconnected — see the Accounts tab', 'warn');
+      else toast(`Synced — ${res.imported} new, ${res.updated} updated${res.removed ? ', ' + res.removed + ' removed' : ''}`, 'ok');
     } catch (e) {
       toast('Sync failed: ' + e.message, 'err');
     } finally {
@@ -76,11 +81,70 @@
     }
   }
 
+  function hasLinks() {
+    return (S.accounts || []).some(a => a.plaidAccountId) ||
+           (S.debts || []).some(d => d.plaidAccountId) ||
+           (S.investments || []).some(i => i.plaidAccountId);
+  }
+
+  // Silent background sync on app open (at most once per 6 hours).
+  async function maybeAutoSync() {
+    if (typeof S === 'undefined' || !S) return;
+    if (!available() || !hasLinks()) return;
+    if (Date.now() - (Number(S.plaidLastSync) || 0) < 6 * 3600e3) return;
+    try {
+      const data = await invoke('sync');
+      const res = mapPlaidData(data);
+      S.plaidLastSync = Date.now();
+      save();
+      if (res.imported || res.updated || res.removed || (S.plaidReauth || []).length) {
+        render();
+        if ((S.plaidReauth || []).length) toast('A bank connection needs to be reconnected — see the Accounts tab', 'warn');
+        else toast(`Bank sync — ${res.imported} new transaction${res.imported === 1 ? '' : 's'}`, 'ok');
+      }
+    } catch (e) { /* silent: manual Sync now still surfaces errors */ }
+  }
+
+  // Re-auth an expired bank login via Plaid Link update mode.
+  async function reconnect(itemId) {
+    if (!available()) { toast('Sign in first', 'warn'); return; }
+    toast('Preparing reconnection…');
+    let linkToken;
+    try { linkToken = (await invoke('link_token', { item_id: itemId })).link_token; }
+    catch (e) { toast('Reconnect failed: ' + e.message, 'err'); return; }
+    try { await loadScript(); } catch (e) { toast(e.message, 'err'); return; }
+    const handler = window.Plaid.create({
+      token: linkToken,
+      onSuccess: async () => {
+        S.plaidReauth = (S.plaidReauth || []).filter(r => r.item_id !== itemId);
+        save();
+        await syncNow();
+      },
+      onExit: (err) => { if (err) toast('Reconnect cancelled', ''); },
+    });
+    handler.open();
+  }
+
   function acctTypeFromPlaid(a) {
     if (a.type === 'credit') return 'credit';
     if (a.type === 'depository') return a.subtype === 'savings' ? 'savings' : (a.subtype === 'cash management' ? 'cash' : 'checking');
-    if (a.type === 'loan') return 'credit';
     return 'checking';
+  }
+  function debtTypeFromPlaid(a) {
+    const s = a.subtype || '';
+    if (s === 'student') return 'student';
+    if (s === 'mortgage' || s === 'home equity') return 'mortgage';
+    if (s === 'auto') return 'auto';
+    return 'personal';
+  }
+  function invTypeFromPlaid(a) {
+    const s = a.subtype || '';
+    if (s.includes('roth')) return 'roth';
+    if (s.includes('401k') || s.includes('401a') || s.includes('403')) return '401k';
+    if (s.includes('ira')) return 'ira';
+    if (s === 'hsa') return 'hsa';
+    if (s === 'brokerage' || s === 'mutual fund' || s === 'stock plan') return 'brokerage';
+    return 'other';
   }
 
   // Ensure an app account exists for a Plaid account; returns app account id.
@@ -104,17 +168,106 @@
     return acct.id;
   }
 
+  // Loan accounts become Debt entries (never S.accounts — totalDebt() would
+  // double count a loan that existed in both places).
+  function ensureDebt(pa) {
+    let d = S.debts.find(x => x.plaidAccountId === pa.account_id);
+    if (!d) {
+      const bal = pa.balances ? Math.abs(pa.balances.current != null ? pa.balances.current : (pa.balances.available || 0)) : 0;
+      d = {
+        id: uid('debt'), name: pa.name || pa.official_name || 'Linked loan', lender: '',
+        type: debtTypeFromPlaid(pa), originalPrincipal: bal, currentBalance: bal,
+        apr: 0, rateType: 'fixed', minPayment: 0, dueDay: 1, creditLimit: '', promoRate: '',
+        promoExpiration: '', capitalization: '', startDate: '', termMonths: '', notes: '',
+        payments: [], plaidAccountId: pa.account_id, linked: true,
+      };
+      S.debts.push(d);
+    }
+    if (pa.balances && pa.balances.current != null) d.currentBalance = Math.abs(pa.balances.current);
+    return d;
+  }
+
+  function ensureInvestment(pa) {
+    let inv = S.investments.find(x => x.plaidAccountId === pa.account_id);
+    if (!inv) {
+      inv = { id: uid('inv'), name: pa.name || pa.official_name || 'Linked investment', type: invTypeFromPlaid(pa), holdings: [], plaidAccountId: pa.account_id, linked: true };
+      S.investments.push(inv);
+    }
+    return inv;
+  }
+
+  function dayFromISO(d) { const n = parseInt(String(d || '').slice(8, 10), 10); return (n >= 1 && n <= 31) ? n : null; }
+
+  function applyLiability(row) {
+    const d = S.debts.find(x => x.plaidAccountId === row.account_id);
+    if (!d) return; // credit cards live in S.accounts, not S.debts — skip their liability rows
+    if (row.kind === 'student') {
+      if (row.interest_rate_percentage != null) d.apr = row.interest_rate_percentage;
+      if (row.minimum_payment_amount != null) d.minPayment = row.minimum_payment_amount;
+      if (row.origination_principal_amount != null) d.originalPrincipal = row.origination_principal_amount;
+      const day = dayFromISO(row.next_payment_due_date); if (day) d.dueDay = day;
+    } else if (row.kind === 'mortgage') {
+      if (row.interest_rate && row.interest_rate.percentage != null) d.apr = row.interest_rate.percentage;
+      if (row.next_monthly_payment != null) d.minPayment = row.next_monthly_payment;
+      if (row.origination_principal_amount != null) d.originalPrincipal = row.origination_principal_amount;
+      const day = dayFromISO(row.next_payment_due_date); if (day) d.dueDay = day;
+    }
+  }
+
+  function applyHoldings(holdings, securities) {
+    if (!holdings || !holdings.length) return;
+    const secById = {}; (securities || []).forEach(s => { secById[s.security_id] = s; });
+    const byInv = {};
+    holdings.forEach(h => { (byInv[h.account_id] = byInv[h.account_id] || []).push(h); });
+    Object.keys(byInv).forEach(accountId => {
+      const inv = S.investments.find(x => x.plaidAccountId === accountId);
+      if (!inv) return;
+      inv.holdings = inv.holdings || [];
+      const seen = new Set();
+      byInv[accountId].forEach(h => {
+        const sec = secById[h.security_id] || {};
+        seen.add(h.security_id);
+        let hold = inv.holdings.find(x => x.plaidSecurityId === h.security_id);
+        if (!hold) { hold = { id: uid('h'), plaidSecurityId: h.security_id, activity: [] }; inv.holdings.push(hold); }
+        hold.ticker = sec.ticker_symbol || hold.ticker || '';
+        hold.name = sec.name || hold.name || '';
+        hold.quantity = h.quantity;
+        if (h.cost_basis != null) hold.costBasis = h.cost_basis;
+        if (h.institution_price != null) hold.currentPrice = h.institution_price;
+        if (h.institution_value != null) hold.currentValue = h.institution_value;
+        hold.lastValuation = h.institution_price_as_of || toISODate(new Date());
+      });
+      // drop linked holdings the institution no longer reports (sold); manual rows stay
+      inv.holdings = inv.holdings.filter(x => !x.plaidSecurityId || seen.has(x.plaidSecurityId));
+    });
+  }
+
   function mapPlaidData(data) {
     const res = { imported: 0, updated: 0, removed: 0 };
-    // 1) accounts (create/link, remember for balance reconciliation)
+    S.debts = S.debts || []; S.investments = S.investments || [];
+    S.plaidAccounts = S.plaidAccounts || {};
+    // 1) accounts: depository/credit → app accounts; loans → debts; investments → holdings accounts
     const accById = {};
-    (data.accounts || []).forEach(pa => { accById[pa.account_id] = pa; ensureAccount(pa); });
+    S.plaidAcctItem = S.plaidAcctItem || {};
+    (data.accounts || []).forEach(pa => {
+      accById[pa.account_id] = pa;
+      if (pa.item_id) S.plaidAcctItem[pa.account_id] = pa.item_id;
+      if (pa.type === 'loan') ensureDebt(pa);
+      else if (pa.type === 'investment') ensureInvestment(pa);
+      else ensureAccount(pa);
+    });
+    (data.liabilities || []).forEach(applyLiability);
+    applyHoldings(data.holdings, data.securities);
+    if (data.items) S.plaidItems = data.items;
+    S.plaidReauth = data.reauth || [];
 
     const byPlaidId = new Map(S.transactions.filter(t => t.plaidId).map(t => [t.plaidId, t]));
     const toAppTx = (t) => {
       const inc = Number(t.amount) < 0;               // Plaid: positive = money OUT of the account
       const amt = Math.abs(Number(t.amount) || 0);
-      const acctId = S.plaidAccounts[t.account_id] || (accById[t.account_id] && ensureAccount(accById[t.account_id]));
+      const pa = accById[t.account_id];
+      const acctId = S.plaidAccounts[t.account_id] ||
+        (pa && pa.type !== 'loan' && pa.type !== 'investment' ? ensureAccount(pa) : null);
       return {
         id: uid('tx'), plaidId: t.transaction_id, accountId: acctId,
         date: t.date, description: t.name || '', merchant: t.merchant_name || '',
@@ -137,6 +290,7 @@
     (data.added || []).forEach(t => {
       if (byPlaidId.has(t.transaction_id)) return;
       const tx = toAppTx(t);
+      if (!tx.accountId) return; // loan/investment account activity isn't imported as transactions
       const fp = (typeof txFingerprint === 'function') ? txFingerprint(tx.accountId, tx.date, tx.description, tx.signed) : null;
       if (fp && S.transactions.some(x => !x.plaidId && typeof txFingerprint === 'function' && txFingerprint(x.accountId, x.date, x.description, x.signed) === fp)) return;
       if (typeof applyRules === 'function') applyRules(tx);
@@ -158,9 +312,21 @@
   }
 
   async function unlink(itemId) {
-    try { await invoke('unlink', { item_id: itemId }); toast('Bank disconnected', 'ok'); render(); }
+    try {
+      await invoke('unlink', { item_id: itemId });
+      // keep the data, but detach it so it becomes manually managed
+      const m = S.plaidAcctItem || {};
+      const ofItem = id => m[id] === itemId;
+      (S.accounts || []).forEach(a => { if (a.plaidAccountId && ofItem(a.plaidAccountId)) { delete a.plaidAccountId; a.linked = false; } });
+      (S.debts || []).forEach(d => { if (d.plaidAccountId && ofItem(d.plaidAccountId)) { delete d.plaidAccountId; d.linked = false; } });
+      (S.investments || []).forEach(i => { if (i.plaidAccountId && ofItem(i.plaidAccountId)) { delete i.plaidAccountId; i.linked = false; } });
+      S.plaidItems = (S.plaidItems || []).filter(i => i.item_id !== itemId);
+      S.plaidReauth = (S.plaidReauth || []).filter(r => r.item_id !== itemId);
+      save();
+      toast('Bank disconnected — its accounts are now manual', 'ok'); render();
+    }
     catch (e) { toast('Could not disconnect: ' + e.message, 'err'); }
   }
 
-  window.BlackInkPlaid = { connectBank, syncNow, unlink, available, _map: mapPlaidData };
+  window.BlackInkPlaid = { connectBank, syncNow, unlink, reconnect, maybeAutoSync, hasLinks, available, _map: mapPlaidData };
 })();
