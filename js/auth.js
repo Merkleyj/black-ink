@@ -160,6 +160,7 @@
         <button class="btn oauth" onclick="BlackInkApp._magic()">✉️ Email me a magic link</button>
         <div class="msg" id="authMsg"></div>
         <div class="foot-link"><a onclick="BlackInkApp._localOnly()">Use without an account (this device only)</a></div>
+        <div class="foot-link" style="margin-top:6px;font-size:12px"><a href="privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="security.html" target="_blank" rel="noopener">Security</a></div>
       </div>`;
     const email = document.getElementById('authEmail');
     if (email) { email.focus(); email.addEventListener('keydown', enterToSubmit); }

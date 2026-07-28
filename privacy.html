@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Black Ink — Privacy Policy</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<style>
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a2b33;max-width:820px;margin:0 auto;padding:48px 56px;line-height:1.6;font-size:15px}
+  h1{font-size:26px;margin:0 0 2px;letter-spacing:-.01em}
+  .meta{color:#5b6b73;font-size:13px;margin-bottom:28px}
+  h2{font-size:18px;margin:30px 0 10px;padding-bottom:6px;border-bottom:2px solid #0f1b2e}
+  p{margin:8px 0}
+  ul{margin:8px 0 8px 22px} li{margin:4px 0}
+  strong{color:#11212a}
+  a{color:#0f5aa8}
+  @media print{ body{padding:0;max-width:none} h2{break-after:avoid} }
+</style>
+</head>
+<body>
+<h1>Privacy Policy</h1>
+<p class="meta">Black Ink (blackinkhq.com) · Operated by Jacob Merkley, sole proprietor · Effective July 2026</p>
+
+<h2>1. What Black Ink is</h2>
+<p>Black Ink is a personal finance application that helps you track your accounts, transactions, budgets, and net worth. This policy explains what data the service collects, how it is used, and the choices you have. Our companion <a href="security.html">Information Security Policy</a> describes how this data is protected.</p>
+
+<h2>2. Data we collect</h2>
+<ul>
+  <li><strong>Account information:</strong> your email address (for sign-in and account recovery). If you sign in with Google, we receive your email and basic profile name from Google.</li>
+  <li><strong>Financial data you enter:</strong> accounts, balances, transactions, budgets, categories, goals, and notes you create in the app.</li>
+  <li><strong>Bank data you connect (optional):</strong> if you choose to link a bank through Plaid, we receive account names, types, balances, and transaction history for the accounts you select. Bank linking is always initiated by you, and Plaid presents its own consent screen describing exactly what is shared. <strong>Black Ink never sees or stores your bank username or password</strong> — credentials are entered only in Plaid's hosted interface. Plaid's handling of your data is described in the <a href="https://plaid.com/legal/#end-user-privacy-policy">Plaid End User Privacy Policy</a>.</li>
+</ul>
+<p>We do <strong>not</strong> collect full account numbers, Social Security numbers, government IDs, or bank credentials. We do not run advertising or third-party analytics trackers.</p>
+
+<h2>3. How we use your data</h2>
+<ul>
+  <li>To display your own finances back to you — that is the entire purpose of the service.</li>
+  <li>To sync your data securely between your devices.</li>
+  <li>To send essential account emails (verification, magic links, password resets, and security or incident notices).</li>
+</ul>
+<p><strong>We never sell your data. We never share it with third parties for marketing. We do not use it for advertising, credit decisions, or profiling.</strong></p>
+
+<h2>4. Where your data lives</h2>
+<ul>
+  <li>Your data is stored in a managed Postgres database operated by <strong>Supabase</strong> (hosted on AWS, United States), encrypted in transit (TLS) and at rest (AES-256).</li>
+  <li>Access is isolated per user: database row-level security ensures each user can only ever access their own data.</li>
+  <li>A local copy is cached in your browser so the app works offline; it stays on your device.</li>
+</ul>
+
+<h2>5. Service providers</h2>
+<p>Black Ink relies on a small set of infrastructure providers, each acting only on our instructions to run the service: <strong>Supabase</strong> (database and authentication), <strong>Plaid</strong> (bank connections, only if you link a bank), <strong>GitHub Pages</strong> (application hosting), <strong>Cloudflare</strong> (domain/DNS), and <strong>Google</strong> (only if you choose Google sign-in).</p>
+
+<h2>6. Your choices and rights</h2>
+<ul>
+  <li><strong>Export:</strong> download your complete data (JSON/CSV) at any time from Settings.</li>
+  <li><strong>Delete:</strong> delete individual transactions, your entire dataset, or your whole account at any time. Account deletion permanently removes all of your data, including stored bank connection tokens.</li>
+  <li><strong>Unlink banks:</strong> disconnect a linked bank at any time; the connection is de-authorized with Plaid and its token deleted. You can also manage or revoke Plaid connections at <a href="https://my.plaid.com">my.plaid.com</a>.</li>
+  <li><strong>Local-only mode:</strong> you can use the app without an account, in which case your data never leaves your device.</li>
+</ul>
+
+<h2>7. Data retention</h2>
+<p>We keep your data only for as long as you keep your account. Deleting data in the app deletes it from the database; deleting your account removes all associated rows immediately via database-level cascade.</p>
+
+<h2>8. Cookies and local storage</h2>
+<p>Black Ink uses browser local storage solely to keep you signed in and to cache your data for offline use. There are no advertising or tracking cookies.</p>
+
+<h2>9. Children</h2>
+<p>Black Ink is not directed at children under 13, and we do not knowingly collect data from them.</p>
+
+<h2>10. Changes and contact</h2>
+<p>If this policy changes materially, we will update this page and note the new effective date. Questions or requests (including data deletion requests) can be sent to <a href="mailto:jacobmerkley@outlook.com">jacobmerkley@outlook.com</a>.</p>
+</body>
+</html>
