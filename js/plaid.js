@@ -316,7 +316,13 @@
     (data.accounts || []).forEach(pa => {
       const acctId = S.plaidAccounts[pa.account_id]; if (!acctId) return;
       const acct = S.accounts.find(x => x.id === acctId); if (!acct) return;
-      const bal = pa.balances && (pa.balances.current != null ? pa.balances.current : pa.balances.available);
+      // Depository accounts: prefer `available` (posted minus pending holds) so the
+      // shown balance matches the bank app's headline number. Credit accounts must
+      // use `current` — their `available` is remaining credit limit, not amount owed.
+      const b = pa.balances || {};
+      const bal = acct.type === 'credit'
+        ? (b.current != null ? b.current : b.available)
+        : (b.available != null ? b.available : b.current);
       if (bal == null) return;
       const target = acct.type === 'credit' ? -Math.abs(bal) : bal;   // credit shows as owed (negative)
       const sumSigned = S.transactions.filter(t => t.accountId === acctId).reduce((s, t) => s + (Number(t.signed) || 0), 0);
