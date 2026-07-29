@@ -58,9 +58,23 @@
           await syncNow(true);
         } catch (e) { toast('Link failed: ' + e.message, 'err'); }
       },
-      onExit: (err) => { if (err) toast('Link cancelled', ''); },
+      onExit: linkExit('Link'),
+      onEvent: linkEvent,
     });
     handler.open();
+  }
+
+  // Surface the real Plaid Link error instead of a silent close, and keep a
+  // console trail of Link events for debugging production institutions.
+  function linkExit(label) {
+    return (err, metadata) => {
+      if (!err) return;
+      console.warn('[plaid] ' + label + ' exit', err, metadata);
+      toast(label + ' error: ' + (err.display_message || err.error_message || err.error_code || 'closed unexpectedly'), 'err');
+    };
+  }
+  function linkEvent(name, metadata) {
+    console.debug('[plaid] event', name, metadata && (metadata.error_code || metadata.view_name || ''));
   }
 
   /* ---------- sync + mapping ---------- */
@@ -120,7 +134,8 @@
         save();
         await syncNow();
       },
-      onExit: (err) => { if (err) toast('Reconnect cancelled', ''); },
+      onExit: linkExit('Reconnect'),
+      onEvent: linkEvent,
     });
     handler.open();
   }
