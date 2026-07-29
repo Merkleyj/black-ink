@@ -73,10 +73,12 @@ Deno.serve(async (req) => {
         return json({ link_token: d.link_token });
       }
       // optional_products: institutions that lack liabilities/investments stay linkable.
+      // days_requested: pull up to 2 years of history (Plaid default is ~90 days).
       const d = await plaid("/link/token/create", {
         ...base,
         products: ["transactions"],
         optional_products: ["liabilities", "investments"],
+        transactions: { days_requested: 730 },
       });
       return json({ link_token: d.link_token });
     }
