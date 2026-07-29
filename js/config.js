@@ -14,7 +14,9 @@
    js/config.local.js (git-ignored) and load that instead in index.html.
    ===================================================================== */
 window.BLACKINK_CONFIG = {
-  SUPABASE_URL: 'https://premmdvakrryuexhkssk.supabase.co',
+  // Own-domain proxy (Cloudflare Worker "blackink-api") in front of
+  // premmdvakrryuexhkssk.supabase.co — some networks block *.supabase.co.
+  SUPABASE_URL: 'https://api.blackinkhq.com',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByZW1tZHZha3JyeXVleGhrc3NrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NzEwMDQsImV4cCI6MjA5OTQ0NzAwNH0.6CuN7Md2yYnZE_fhxjXdoyY1zlx2AbHsd-8r1v_4a-A',
 
   // Where Supabase should send users back after OAuth / magic-link sign-in.
