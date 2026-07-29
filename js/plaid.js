@@ -308,7 +308,16 @@
       if (!tx.accountId) return; // loan/investment account activity isn't imported as transactions
       const fp = (typeof txFingerprint === 'function') ? txFingerprint(tx.accountId, tx.date, tx.description, tx.signed) : null;
       if (fp && S.transactions.some(x => !x.plaidId && typeof txFingerprint === 'function' && txFingerprint(x.accountId, x.date, x.description, x.signed) === fp)) return;
-      if (typeof applyRules === 'function') applyRules(tx);
+      if (typeof applyRules === 'function') {
+        applyRules(tx);
+        // Same per-match import behaviors as the CSV path: rules can flag for
+        // review or mark recurring, applied at import time only.
+        if (tx.ruleApplied) {
+          const fr = (S.rules || []).find(r => r.id === tx.ruleApplied);
+          if (fr && fr.flagReview) tx.needsReview = true;
+          if (fr && fr.markRecurring) tx.recurring = true;
+        }
+      }
       S.transactions.push(tx); byPlaidId.set(t.transaction_id, tx); res.imported++;
     });
 

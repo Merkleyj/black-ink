@@ -4027,6 +4027,10 @@ function viewRules(){
           <span class="mini">${esc(t.merchant||t.description||'—')} · ${fmtDate(t.date)} · ${money(Math.abs(t.amount))} · ${esc(accountName(t.accountId))} · matches <b id="ukn_${t.id}">${ruleMatchCount(kw)}</b></span>
         </div>
         <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}${transferOptgroup(sg)}</select>
+        <span class="mini" style="display:flex;gap:10px;align-items:center;white-space:nowrap">
+          <label title="Mark this merchant's transactions as recurring — for bills that charge on a schedule" style="display:flex;gap:4px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="ur_${t.id}" style="width:auto">↻ recurring</label>
+          <label title="Flag future imports matching this rule for review" style="display:flex;gap:4px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="uf_${t.id}" style="width:auto">⚑ review</label>
+        </span>
       </div>`}).join('')}
     </div>
     ${uncats.length>25?`<p class="mini">Showing first 25 of ${uncats.length}.</p>`:''}
@@ -4207,11 +4211,13 @@ function saveCheckedUncats(){
     const cat=categoryForSub(sub);
     const tr=isTransferCat(cat);
     const kwEl=document.getElementById('uk_'+id); const kw=((kwEl&&kwEl.value)||'').trim().toUpperCase();
-    t.subcategory=sub; t.category=cat; t.manualCat=true; t.transfer=tr; t.needsReview=false; applySign(t); filed++;
+    const recur=!!(document.getElementById('ur_'+id)||{}).checked;
+    const flag=!!(document.getElementById('uf_'+id)||{}).checked;
+    t.subcategory=sub; t.category=cat; t.manualCat=true; t.transfer=tr; t.needsReview=false; if(recur) t.recurring=true; applySign(t); filed++;
     if(kw){
       const exists=S.rules.some(r=>(r.value||'').toUpperCase()===kw && r.subcategory===sub);
-      if(!exists){ S.rules.push({id:uid('rule'),enabled:true,order:S.rules.length,field:'description',matchType:'contains',value:kw,subcategory:sub,category:cat,transfer:tr}); ruled++; }
-      S.transactions.forEach(x=>{ if(x.id!==t.id && !x.transfer && (!x.subcategory||!x.subcategory.trim()) && (((x.description||'')+' '+(x.merchant||'')).toUpperCase().indexOf(kw)>=0)){ x.subcategory=sub; x.category=cat; x.manualCat=true; x.transfer=tr; applySign(x); filed++; } });
+      if(!exists){ S.rules.push({id:uid('rule'),enabled:true,order:S.rules.length,field:'description',matchType:'contains',value:kw,subcategory:sub,category:cat,transfer:tr,markRecurring:recur,flagReview:flag}); ruled++; }
+      S.transactions.forEach(x=>{ if(x.id!==t.id && !x.transfer && (!x.subcategory||!x.subcategory.trim()) && (((x.description||'')+' '+(x.merchant||'')).toUpperCase().indexOf(kw)>=0)){ x.subcategory=sub; x.category=cat; x.manualCat=true; x.transfer=tr; if(recur) x.recurring=true; applySign(x); filed++; } });
     }
   });
   save();
