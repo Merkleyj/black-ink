@@ -540,7 +540,10 @@
   .ckline{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
   .ck-row{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
   .uncat-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-  .uncat-row{display:grid;grid-template-columns:auto 1fr 210px;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:9px}
+  .uncat-row{display:grid;grid-template-columns:auto 1fr 210px auto;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:9px}
+  .ur-flags{display:flex;flex-direction:column;gap:2px;align-items:center}
+  .ur-flags label{display:flex;gap:3px;align-items:center;margin:0;cursor:pointer}
+  .ur-flags input{width:auto}
   .ur-sel-chk{width:17px;height:17px;cursor:pointer}
   .unc-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 4px;padding:8px 10px;background:color-mix(in srgb,var(--blue) 5%,var(--surface));border:1px solid var(--line);border-radius:9px}
   .unc-toolbar .spacer{flex:1}
@@ -668,6 +671,7 @@
     /* Uncategorized queue: stack keyword row over a full-width subcategory picker */
     .uncat-row{grid-template-columns:auto 1fr}
     .uncat-row .ur-sel{grid-column:1/-1;width:100%;max-width:none}
+    .ur-flags{grid-column:1/-1;flex-direction:row;gap:14px}
     .ur-kw{max-width:none}
 
     /* Rules list: table rows become cards */
@@ -4027,9 +4031,9 @@ function viewRules(){
           <span class="mini">${esc(t.merchant||t.description||'—')} · ${fmtDate(t.date)} · ${money(Math.abs(t.amount))} · ${esc(accountName(t.accountId))} · matches <b id="ukn_${t.id}">${ruleMatchCount(kw)}</b></span>
         </div>
         <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}${transferOptgroup(sg)}</select>
-        <span style="display:flex;gap:8px;align-items:center;white-space:nowrap">
-          <label title="Recurring — mark this merchant's transactions as a scheduled bill" style="display:flex;gap:3px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="ur_${t.id}" style="width:auto">↻</label>
-          <label title="Review — flag future imports matching this rule with a review badge" style="display:flex;gap:3px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="uf_${t.id}" style="width:auto">⚑</label>
+        <span class="ur-flags">
+          <label title="Recurring — mark this merchant's transactions as a scheduled bill"><input type="checkbox" id="ur_${t.id}">↻</label>
+          <label title="Review — flag future imports matching this rule with a review badge"><input type="checkbox" id="uf_${t.id}">⚑</label>
           <span class="mini" style="cursor:help;opacity:.65" title="↻ marks this merchant's transactions as recurring (bills that charge on a schedule — subscriptions, utilities, rent).&#10;⚑ flags future imports matching this rule with a dismissible review badge so you can double-check them.">ⓘ</span>
         </span>
       </div>`}).join('')}
