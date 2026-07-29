@@ -4027,9 +4027,10 @@ function viewRules(){
           <span class="mini">${esc(t.merchant||t.description||'—')} · ${fmtDate(t.date)} · ${money(Math.abs(t.amount))} · ${esc(accountName(t.accountId))} · matches <b id="ukn_${t.id}">${ruleMatchCount(kw)}</b></span>
         </div>
         <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}${transferOptgroup(sg)}</select>
-        <span class="mini" style="display:flex;gap:10px;align-items:center;white-space:nowrap">
-          <label title="Mark this merchant's transactions as recurring — for bills that charge on a schedule" style="display:flex;gap:4px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="ur_${t.id}" style="width:auto">↻ recurring</label>
-          <label title="Flag future imports matching this rule for review" style="display:flex;gap:4px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="uf_${t.id}" style="width:auto">⚑ review</label>
+        <span style="display:flex;gap:8px;align-items:center;white-space:nowrap">
+          <label title="Recurring — mark this merchant's transactions as a scheduled bill" style="display:flex;gap:3px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="ur_${t.id}" style="width:auto">↻</label>
+          <label title="Review — flag future imports matching this rule with a review badge" style="display:flex;gap:3px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="uf_${t.id}" style="width:auto">⚑</label>
+          <span class="mini" style="cursor:help;opacity:.65" title="↻ marks this merchant's transactions as recurring (bills that charge on a schedule — subscriptions, utilities, rent).&#10;⚑ flags future imports matching this rule with a dismissible review badge so you can double-check them.">ⓘ</span>
         </span>
       </div>`}).join('')}
     </div>
