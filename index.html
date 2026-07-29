@@ -1018,8 +1018,20 @@ function migrate(s){
   for(const k in d.settings){ if(s.settings[k]===undefined) s.settings[k]=d.settings[k]; }
   if(!s.budgets.recurring) s.budgets.recurring={};
   if(!s.budgets.months) s.budgets.months={};
-  // Keep the built-in Transfers category's subcategories in sync with the current set.
-  { const _tc=(s.categories||[]).find(c=>c.name==='Transfers'); if(_tc){ _tc.subs=_tc.subs||[]; ['Account transfer','Credit card payment','Loan payment','Investment/savings transfer'].forEach(sub=>{ if(_tc.subs.indexOf(sub)<0) _tc.subs.push(sub); }); } }
+  // One-time seed of the built-in Transfers subcategories. Guarded by a flag and
+  // case-insensitive so deleting or renaming them sticks — re-adding on every
+  // load made removed duplicates reappear.
+  if(!s.settings.transferSubsSeeded_v2){
+    const _tc=(s.categories||[]).find(c=>c.name==='Transfers');
+    if(_tc){
+      _tc.subs=_tc.subs||[];
+      const _have=_tc.subs.map(x=>String(x).toLowerCase());
+      ['Account transfer','Credit card payment','Loan payment','Investment/savings transfer'].forEach(sub=>{
+        if(_have.indexOf(sub.toLowerCase())<0){ _tc.subs.push(sub); _have.push(sub.toLowerCase()); }
+      });
+    }
+    s.settings.transferSubsSeeded_v2=true;
+  }
   // One-time: re-split logged payments so promo-rate periods credit principal instead of full-APR interest.
   if(s.settings && !s.settings.promoSplitFixed_v1){
     (s.debts||[]).forEach(d=>{
