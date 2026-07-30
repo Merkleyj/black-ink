@@ -3249,6 +3249,25 @@ function payoffMonths(bal,apr,pmt){
   if(r===0) return Math.ceil(bal/pmt);
   return Math.ceil(Math.log(pmt/(pmt-bal*r))/Math.log(1+r));
 }
+/* Interest accrual method. Federal student loans accrue simple daily interest
+   (balance × rate/365.25 × days between payments); most other debts are modeled
+   monthly (APR ÷ 12). Auto-selected by debt type, overridable per debt. */
+function debtAccrual(d){ return (d && d.accrual) ? d.accrual : ((d && d.type==='student') ? 'daily' : 'monthly'); }
+function lastPaymentDateBefore(d, date){
+  const ds=(d.payments||[]).map(p=>p.date).filter(x=>x && (!date || x<date)).sort();
+  return ds.length ? ds[ds.length-1] : (d.startDate||null);
+}
+/* Interest owed at `date` under the debt's accrual model (used to split payments). */
+function interestForPayment(d, date){
+  const bal=Number(d.currentBalance)||0, eff=effectiveApr(d, date);
+  if(debtAccrual(d)==='daily'){
+    const prev=lastPaymentDateBefore(d, date);
+    let days=prev ? Math.round((new Date(date)-new Date(prev))/864e5) : 30;
+    if(!isFinite(days)||days<1) days=30; if(days>366) days=366;
+    return bal*(eff/100)/365.25*days;
+  }
+  return monthlyInterest(bal, eff);
+}
 /* Effective rate honours a promotional rate while it's still active */
 function effectiveApr(d, date){
   const when = date ? new Date(date) : new Date();
@@ -3359,6 +3378,7 @@ function editDebt(id){
     <div><label class="fld">Promo rate expires</label><input type="date" id="dPromoExp" value="${d.promoExpiration||''}"></div>
     <div><label class="fld">Loan start date</label><input type="date" id="dStart" value="${d.startDate||''}"></div>
     <div><label class="fld">Original term (months)</label><input type="number" id="dTerm" value="${d.termMonths||''}"></div>
+    <div><label class="fld">Interest accrual</label><select id="dAccrual"><option value="" ${!d.accrual?'selected':''}>Auto — by debt type</option><option value="monthly" ${d.accrual==='monthly'?'selected':''}>Monthly (APR ÷ 12)</option><option value="daily" ${d.accrual==='daily'?'selected':''}>Daily simple (federal student loans)</option></select></div>
     <div class="full"><label class="fld">Notes (incl. ${tip(GLOSS.capitalization,'interest capitalization')} terms)</label><input type="text" id="dNotes" value="${esc(d.notes||'')}"></div>
   </div></div>
   <div class="mft">${id?`<button class="btn danger" style="margin-right:auto" onclick="delDebt('${id}')">Delete</button>`:''}<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveDebt('${id||''}')">Save</button></div>`);
@@ -3368,7 +3388,7 @@ function saveDebt(id){
   const data={name:g('dName')||'Debt',lender:g('dLender'),type:g('dType'),rateType:g('dRateType'),
     originalPrincipal:parseFloat(g('dOrig'))||0,currentBalance:parseFloat(g('dBal'))||0,apr:parseFloat(g('dApr'))||0,
     minPayment:parseFloat(g('dMin'))||0,dueDay:parseInt(g('dDue'))||1,creditLimit:g('dLimit')?parseFloat(g('dLimit')):'',
-    promoRate:g('dPromo'),promoExpiration:g('dPromoExp'),startDate:g('dStart'),termMonths:g('dTerm'),notes:g('dNotes')};
+    promoRate:g('dPromo'),promoExpiration:g('dPromoExp'),startDate:g('dStart'),termMonths:g('dTerm'),accrual:g('dAccrual'),notes:g('dNotes')};
   if(id){ Object.assign(S.debts.find(x=>x.id===id),data); }
   else { S.debts.push({id:uid('debt'),...data,payments:[]}); }
   save(); closeModal(); render();
@@ -3377,10 +3397,13 @@ function delDebt(id){ confirmBox('Delete debt','This removes the debt and its pa
 
 function logPayment(id){
   const d=S.debts.find(x=>x.id===id);
-  const mi=monthlyInterest(Number(d.currentBalance)||0,effectiveApr(d));
+  const today=toISODate(new Date());
+  const mi=interestForPayment(d,today);
+  const daily=debtAccrual(d)==='daily';
+  const prev=daily?lastPaymentDateBefore(d,today):null;
   openModal(`<div class="mhd"><h3>Log payment — ${esc(d.name)}</h3><button class="x" onclick="closeModal()">×</button></div>
   <div class="mbd">
-    <div class="mini" style="margin-bottom:10px">Current balance ${money(d.currentBalance)} · estimated interest this month ${money(mi)}</div>
+    <div class="mini" style="margin-bottom:10px">Current balance ${money(d.currentBalance)} · estimated interest ${daily?`accrued since ${prev?fmtDate(prev):'last month'} (daily accrual)`:'this month'} ${money(mi)}</div>
     <div class="form-grid">
       <div><label class="fld">Payment date</label><input type="date" id="pDate" value="${toISODate(new Date())}"></div>
       <div><label class="fld">Amount paid</label><input type="number" step="0.01" id="pAmt" value="${d.minPayment||0}"></div>
@@ -3398,7 +3421,7 @@ function savePayment(id){
   const date=document.getElementById('pDate').value;
   const paid=g('pAmt'), extra=g('pExtra'), fees=g('pFees'), charge=g('pCharge');
   const bal=Number(d.currentBalance)||0;
-  const interest=Math.min(monthlyInterest(bal,effectiveApr(d,date)), paid);
+  const interest=Math.min(interestForPayment(d,date), paid);
   const principal=Math.max(0, paid-interest)+extra;
   d.currentBalance=Math.max(0, bal - principal + charge + fees);
   d.payments=d.payments||[];
