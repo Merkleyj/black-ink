@@ -1,5 +1,11 @@
 # Claude Code local settings (personal, machine-specific)
-.claude/settings.local.json
+.claude/
+
+# Supabase CLI scratch files
+supabase/.temp/
+
+# Personal documents that don't belong in a public repo
+*.pdf
 
 # Dependencies
 node_modules/
