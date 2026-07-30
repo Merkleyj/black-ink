@@ -5132,7 +5132,7 @@ function initWiz(){
 function wizLinked(){ return !!(window.BlackInkPlaid && BlackInkPlaid.hasLinks && BlackInkPlaid.hasLinks()); }
 function wizSteps(){
   return wizLinked()
-    ? ['welcome','currency','bank','income','goals','finish']
+    ? ['welcome','currency','bank','accounts','income','goals','finish']
     : ['welcome','currency','bank','accounts','income','debts','investments','goals','finish'];
 }
 const WIZ_LABELS={welcome:'Welcome',currency:'Currency',bank:'Link bank',accounts:'Accounts',income:'Income',debts:'Debts',investments:'Investments',goals:'Goals',finish:'Finish'};
@@ -5196,8 +5196,10 @@ function wizStep(){
         <div><label class="fld">Locale</label><input type="text" id="wLoc" value="${esc(wiz.locale)}" placeholder="en-US"></div>
       </div>`;
     case 'accounts': return `
-      <h1>Your accounts</h1>
-      <p>Add the accounts you want to track — checking, savings, credit cards, cash. Enter today’s balance for each. For credit cards, enter the balance owed as a positive number.</p>
+      <h1>${wizLinked()?'Anything your bank didn’t cover? <span class="mini">(optional)</span>':'Your accounts'}</h1>
+      <p>${wizLinked()
+        ?'Your linked accounts are already in. Add anything else here — cash, or accounts at banks that can’t be linked. Manual debts and investments can be added later from their tabs.'
+        :'Add the accounts you want to track — checking, savings, credit cards, cash. Enter today’s balance for each. For credit cards, enter the balance owed as a positive number.'}</p>
       ${wizList('accounts', wiz.accounts.map((a,i)=>`<div class="wiz-item"><b>${esc(a.name)}</b> · ${a.type} · ${money(a.startingBalance)} <button class="icon-btn danger" onclick="wizDel('accounts',${i})">×</button></div>`).join(''))}
       <div class="form-grid wiz-add">
         <div><label class="fld">Name</label><input type="text" id="waName" placeholder="e.g. Main checking"></div>
