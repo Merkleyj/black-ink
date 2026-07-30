@@ -4027,10 +4027,8 @@ function viewRules(){
       ${uncats.slice(0,25).map(t=>{const kw=suggestKeyword(t.merchant||t.description);const sg=suggestSub(t.merchant||t.description);return `<div class="uncat-row">
         <input type="checkbox" class="ur-sel-chk" id="usel_${t.id}" onchange="updUncCount()">
         <div class="ur-main">
-          <div style="display:flex;gap:10px;align-items:center;min-width:0">
-            <input id="uk_${t.id}" class="ur-kw" value="${esc(kw)}" oninput="ukCount('${t.id}',this.value)" title="Rule keyword — edit to control what matches">
-            <span class="mini" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0" title="${esc(t.description||'')}">${esc(t.merchant||t.description||'—')}</span>
-          </div>
+          <input id="uk_${t.id}" class="ur-kw" value="${esc(kw)}" oninput="ukCount('${t.id}',this.value)" title="Rule keyword — edit to control what matches">
+          <span class="mini" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.description||'')}">${esc(t.merchant||t.description||'—')}</span>
           <span class="mini">${fmtDate(t.date)} · ${((t.kind||t.flow)==='income'?'+':'−')+money(Math.abs(t.amount)).replace('−','')} · ${esc(accountName(t.accountId))} · matches <b id="ukn_${t.id}">${ruleMatchCount(kw)}</b></span>
         </div>
         <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}${transferOptgroup(sg)}</select>
