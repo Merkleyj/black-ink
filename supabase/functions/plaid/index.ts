@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
         client_name: "Black Ink",
         country_codes: ["US"],
         language: "en",
+        // Plaid notifies this endpoint when fresh data is ready (see the
+        // plaid-webhook function); the app then syncs without waiting.
+        webhook: `${SUPABASE_URL}/functions/v1/plaid-webhook`,
       };
       if (body.item_id) {
         // Update (re-auth) mode for an existing item: pass its access_token, no products.
@@ -150,9 +153,33 @@ Deno.serve(async (req) => {
             throw e;
           }
         }
-        await admin.from("plaid_items").update({ cursor }).eq("id", it.id);
+        await admin.from("plaid_items").update({ cursor, updates_available: false }).eq("id", it.id);
       }
       return json(out);
+    }
+
+    // Cheap poll: does any item have webhook-flagged updates waiting?
+    if (action === "status") {
+      const { data: rows } = await admin.from("plaid_items")
+        .select("item_id").eq("user_id", user.id).eq("updates_available", true).limit(1);
+      return json({ updates: (rows ?? []).length > 0 });
+    }
+
+    // One-time migration: point existing items (linked before webhooks) at the
+    // webhook endpoint. New links get it via the link_token config.
+    if (action === "set_webhooks") {
+      const { data: items } = await admin.from("plaid_items").select("*").eq("user_id", user.id);
+      let updated = 0;
+      for (const it of items ?? []) {
+        try {
+          await plaid("/item/webhook/update", {
+            access_token: it.access_token,
+            webhook: `${SUPABASE_URL}/functions/v1/plaid-webhook`,
+          });
+          updated++;
+        } catch (_e) { /* best effort per item */ }
+      }
+      return json({ updated, total: (items ?? []).length });
     }
 
     if (action === "unlink") {

@@ -20,3 +20,8 @@ create table if not exists public.plaid_items (
 
 alter table public.plaid_items enable row level security;
 -- (intentionally no policies — service_role bypasses RLS; clients get nothing)
+
+-- Webhook support: the plaid-webhook function flags an item when Plaid says
+-- new data is ready; the sync action clears it. (Safe to re-run.)
+alter table public.plaid_items add column if not exists updates_available boolean not null default false;
+alter table public.plaid_items add column if not exists last_webhook timestamptz;

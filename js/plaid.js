@@ -101,11 +101,10 @@
            (S.investments || []).some(i => i.plaidAccountId);
   }
 
-  // Silent background sync on app open (at most once per 6 hours).
-  async function maybeAutoSync() {
-    if (typeof S === 'undefined' || !S) return;
-    if (!available() || !hasLinks()) return;
-    if (Date.now() - (Number(S.plaidLastSync) || 0) < 6 * 3600e3) return;
+  let _silentSyncing = false;
+  async function silentSync() {
+    if (_silentSyncing) return;
+    _silentSyncing = true;
     try {
       const data = await invoke('sync');
       const res = mapPlaidData(data);
@@ -117,7 +116,38 @@
         else toast(`Account sync — ${res.imported} new transaction${res.imported === 1 ? '' : 's'}`, 'ok');
       }
     } catch (e) { /* silent: manual Sync now still surfaces errors */ }
+    finally { _silentSyncing = false; }
   }
+
+  // Silent background sync on app open. Webhook-flagged updates sync
+  // immediately; otherwise fall back to the once-per-6-hours safety net.
+  async function maybeAutoSync() {
+    if (typeof S === 'undefined' || !S) return;
+    if (!available() || !hasLinks()) return;
+    try {
+      const st = await invoke('status');
+      if (st && st.updates) return silentSync();
+    } catch (e) { /* status is best-effort; the timer below still applies */ }
+    if (Date.now() - (Number(S.plaidLastSync) || 0) < 6 * 3600e3) return;
+    return silentSync();
+  }
+
+  // Freshness poll while the app is open (TV dashboard, long-lived tabs):
+  // every 5 minutes ask the cheap `status` action whether a webhook fired,
+  // and sync only when it did. Skipped while the tab is hidden.
+  async function checkForUpdates() {
+    if (typeof S === 'undefined' || !S || !S.setupDone) return;
+    if (document.visibilityState !== 'visible') return;
+    if (!available() || !hasLinks() || _silentSyncing) return;
+    try {
+      const st = await invoke('status');
+      if (st && st.updates) await silentSync();
+    } catch (e) { /* silent */ }
+  }
+  setInterval(() => { try { checkForUpdates(); } catch (e) {} }, 5 * 60e3);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { try { checkForUpdates(); } catch (e) {} }
+  });
 
   // Re-auth an expired bank login via Plaid Link update mode.
   async function reconnect(itemId) {
@@ -369,5 +399,5 @@
     catch (e) { toast('Could not disconnect: ' + e.message, 'err'); }
   }
 
-  window.BlackInkPlaid = { connectBank, syncNow, unlink, reconnect, maybeAutoSync, hasLinks, available, _map: mapPlaidData };
+  window.BlackInkPlaid = { connectBank, syncNow, unlink, reconnect, maybeAutoSync, checkForUpdates, setWebhooks: () => invoke('set_webhooks'), hasLinks, available, _map: mapPlaidData };
 })();
