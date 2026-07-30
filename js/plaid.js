@@ -308,7 +308,18 @@
       if (!tx.accountId) return; // loan/investment account activity isn't imported as transactions
       const fp = (typeof txFingerprint === 'function') ? txFingerprint(tx.accountId, tx.date, tx.description, tx.signed) : null;
       if (fp && S.transactions.some(x => !x.plaidId && typeof txFingerprint === 'function' && txFingerprint(x.accountId, x.date, x.description, x.signed) === fp)) return;
-      if (typeof applyRules === 'function') {
+      // Same credit-card payment / transfer heuristics as the CSV import path,
+      // so both halves of a card payment pair up as transfers automatically.
+      const appAcct = S.accounts.find(x => x.id === tx.accountId);
+      if (typeof looksLikeCardPayment === 'function' &&
+          (looksLikeCardPayment(tx.description) ||
+           (appAcct && appAcct.type === 'credit' && tx.kind === 'income' && looksLikeTransfer(tx.description)))) {
+        tx.transfer = true; tx.category = 'Transfers';
+        tx.subcategory = transferSubLike(/credit\s*card/i, 'Credit card payment');
+      } else if (typeof looksLikeTransfer === 'function' && looksLikeTransfer(tx.description)) {
+        tx.transfer = true; tx.category = 'Transfers';
+        tx.subcategory = transferSubLike(/account/i, 'Account transfer');
+      } else if (typeof applyRules === 'function') {
         applyRules(tx);
         // Same per-match import behaviors as the CSV path: rules can flag for
         // review or mark recurring, applied at import time only.
