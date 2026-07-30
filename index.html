@@ -4574,14 +4574,15 @@ function scanQuality(){
     items:staleInv.map(x=>({label:`${esc(x.inv.name)} · ${esc(x.h.ticker||x.h.name)} · ${x.h.lastValuation?fmtDate(x.h.lastValuation):'never'}`,action:`<button class="btn sm" onclick="go('investments')">Update</button>`}))});
 
   // debt balances not reconciling with payment history
+  const _ddebt=new Set((S.settings.dismissedDebtRecon)||[]);
   const debtMismatch=[];
-  S.debts.forEach(d=>{ if(!d.payments||!d.payments.length||!d.originalPrincipal) return;
+  S.debts.forEach(d=>{ if(!d.payments||!d.payments.length||!d.originalPrincipal||_ddebt.has(d.id)) return;
     const paidPrincipal=d.payments.reduce((s,p)=>s+(Number(p.principal)||0)-(Number(p.newCharges)||0),0);
     const expected=Number(d.originalPrincipal)-paidPrincipal;
     if(Math.abs(expected-Number(d.currentBalance))>Math.max(25,Number(d.originalPrincipal)*0.02)) debtMismatch.push({d,expected});
   });
-  groups.push({title:'Debt balances that don’t reconcile',icon:'◔',tone:'warn',help:'Current balance differs from original principal minus recorded principal payments.',
-    items:debtMismatch.map(x=>({label:`${esc(x.d.name)} · recorded ${money(x.d.currentBalance)} · expected ~${money(x.expected)}`,action:`<button class="btn sm" onclick="go('debt')">Review</button>`}))});
+  groups.push({title:'Debt balances that don’t reconcile',icon:'◔',tone:'warn',help:'Current balance differs from original principal minus recorded principal payments. Expected on unsubsidized student loans, where in-school interest was capitalized into the starting balance — dismiss those, or raise the original principal to the capitalized amount.',
+    items:debtMismatch.map(x=>({label:`${esc(x.d.name)} · recorded ${money(x.d.currentBalance)} · expected ~${money(x.expected)}`,action:`<button class="btn sm" onclick="go('debt')">Review</button> <button class="btn sm" onclick="qDismissDebtRecon('${x.d.id}')">Dismiss</button>`}))});
 
   return groups;
 }
@@ -4599,7 +4600,8 @@ function qMarkTransfer(id){ const t=S.transactions.find(x=>x.id===id); t.transfe
 function qMarkRecurring(key){ S.transactions.forEach(t=>{ if((t.merchant||t.description||'').toLowerCase().slice(0,24)===key) t.recurring=true; }); save(); toast('Marked recurring'); render(); }
 function qDismissDupe(id){ S.settings.dismissedDupes=S.settings.dismissedDupes||[]; if(!S.settings.dismissedDupes.includes(id)) S.settings.dismissedDupes.push(id); save(); render(); toast('Dismissed','ok'); }
 function qDismissRecurring(key){ S.settings.dismissedRecurring=S.settings.dismissedRecurring||[]; if(!S.settings.dismissedRecurring.includes(key)) S.settings.dismissedRecurring.push(key); save(); render(); toast('Dismissed','ok'); }
-function qResetDismissed(){ S.settings.dismissedDupes=[]; S.settings.dismissedRecurring=[]; save(); render(); toast('Restored dismissed items','ok'); }
+function qDismissDebtRecon(id){ S.settings.dismissedDebtRecon=S.settings.dismissedDebtRecon||[]; if(!S.settings.dismissedDebtRecon.includes(id)) S.settings.dismissedDebtRecon.push(id); save(); render(); toast('Dismissed','ok'); }
+function qResetDismissed(){ S.settings.dismissedDupes=[]; S.settings.dismissedRecurring=[]; S.settings.dismissedDebtRecon=[]; save(); render(); toast('Restored dismissed items','ok'); }
 /* =====================================================================
    EXPORT & SETTINGS
    ===================================================================== */
