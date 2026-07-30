@@ -5152,8 +5152,17 @@ function renderWizard(){
       <div class="mini">Step ${wiz.step+1} of ${ids.length}</div>
       ${wiz.step<ids.length-1?`<button class="btn primary" onclick="wizGo(1)">Continue</button>`:`<button class="btn primary" onclick="wizFinish()">Finish setup</button>`}
     </div>
-    ${wiz.step>0?`<div class="wiz-skip"><a href="#" onclick="wizSkip();return false;">Skip setup and explore with sample data</a></div>`:''}
+    <div class="wiz-skip">${wiz.step>0?`<a href="#" onclick="wizSkip();return false;">Skip setup and explore with sample data</a> · `:''}<a href="#" onclick="wizExit();return false;">Exit setup without finishing</a></div>
   </div>`;
+}
+/* Leave the wizard without completing it. Anything already written to S stays
+   (a bank linked mid-setup, or the existing data when the wizard was re-run);
+   wizard-only inputs that weren't finished are discarded. */
+function wizExit(){
+  S.setupDone=true; S.usingSample=S.usingSample||false;
+  save(); wiz=null; activeTab='overview';
+  toast('Setup closed — re-run it any time from Export & settings');
+  render();
 }
 
 function wizStep(){
