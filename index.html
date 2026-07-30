@@ -3109,19 +3109,19 @@ function viewAccounts(){
   ${window.BlackInkPlaid ? `<div class="card feature" style="margin-bottom:16px"><div class="bd" style="padding:14px 16px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
-        <div style="font-weight:650">Link a bank <span class="pill">beta</span></div>
-        <div class="mini">Automatically import transactions, balances, loans, and investment holdings. Powered by Plaid — your bank login is handled by Plaid and never seen by Black Ink.</div>
+        <div style="font-weight:650">Link your accounts <span class="pill">beta</span></div>
+        <div class="mini">Connect banks, credit cards, brokerages and loan servicers to automatically import transactions, balances, loans, and investment holdings. Powered by Plaid — your login is handled by Plaid and never seen by Black Ink.</div>
       </div>
-      <button class="btn primary" onclick="BlackInkPlaid.connectBank()">Connect a bank</button>
+      <button class="btn primary" onclick="BlackInkPlaid.connectBank()">Connect accounts</button>
       ${BlackInkPlaid.hasLinks() ? `<button class="btn" id="plaidSyncBtn" onclick="BlackInkPlaid.syncNow()">Sync now</button>` : ''}
     </div>
     ${(S.plaidReauth&&S.plaidReauth.length) ? `<div style="margin-top:10px;padding:10px 12px;border:1px solid var(--amber);border-radius:8px">
-      <div class="mini" style="margin-bottom:8px"><b>Bank sign-in expired.</b> Reconnect to resume automatic syncing — your data is untouched.</div>
-      ${S.plaidReauth.map(r=>`<button class="btn sm primary" onclick="BlackInkPlaid.reconnect('${esc(r.item_id)}')">Reconnect ${esc(r.institution||'bank')}</button>`).join(' ')}
+      <div class="mini" style="margin-bottom:8px"><b>Institution sign-in expired.</b> Reconnect to resume automatic syncing — your data is untouched.</div>
+      ${S.plaidReauth.map(r=>`<button class="btn sm primary" onclick="BlackInkPlaid.reconnect('${esc(r.item_id)}')">Reconnect ${esc(r.institution||'institution')}</button>`).join(' ')}
     </div>` : ''}
     ${(()=>{ const items=S.plaidItems||[]; if(!items.length) return '';
       return `<div class="mini" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">Connected: ${items.map(it=>
-        `<span class="pill">${esc(it.institution||'Bank')} <a style="cursor:pointer" title="Disconnect this bank" onclick="confirmBox('Disconnect bank','Stops syncing this bank and de-authorizes it with Plaid. Imported data stays and becomes manually managed.',()=>{closeModal();BlackInkPlaid.unlink('${esc(it.item_id)}')},'Disconnect',true)">✕</a></span>`).join(' ')}</div>`; })()}
+        `<span class="pill">${esc(it.institution||'Institution')} <a style="cursor:pointer" title="Disconnect this institution" onclick="confirmBox('Disconnect institution','Stops syncing this institution and de-authorizes it with Plaid. Imported data stays and becomes manually managed.',()=>{closeModal();BlackInkPlaid.unlink('${esc(it.item_id)}')},'Disconnect',true)">✕</a></span>`).join(' ')}</div>`; })()}
     ${(()=>{ const linked=S.accounts.filter(a=>a.plaidAccountId); return linked.length ? `<div class="mini" style="margin-top:6px">Linked accounts: ${linked.map(a=>esc(a.name)).join(', ')}${S.plaidLastSync?` · last sync ${new Date(S.plaidLastSync).toLocaleString()}`:''}</div>` : ''; })()}
   </div></div>` : ''}
 
@@ -5135,7 +5135,7 @@ function wizSteps(){
     ? ['welcome','currency','bank','accounts','income','goals','finish']
     : ['welcome','currency','bank','accounts','income','debts','investments','goals','finish'];
 }
-const WIZ_LABELS={welcome:'Welcome',currency:'Currency',bank:'Link bank',accounts:'Accounts',income:'Income',debts:'Debts',investments:'Investments',goals:'Goals',finish:'Finish'};
+const WIZ_LABELS={welcome:'Welcome',currency:'Currency',bank:'Link accounts',accounts:'Accounts',income:'Income',debts:'Debts',investments:'Investments',goals:'Goals',finish:'Finish'};
 function wizStepId(){ const ids=wizSteps(); return ids[clamp(wiz.step,0,ids.length-1)]; }
 function renderWizard(){
   if(!wiz) initWiz();
@@ -5170,7 +5170,7 @@ function wizStep(){
     case 'welcome': return `
       <h1>Welcome to your finance dashboard 👋</h1>
       <p>This is a private workspace to track spending, build a budget, manage debt, and watch your net worth grow. Your data belongs to you — it lives in your browser and, when you're signed in, syncs privately to your account. Never sold, never shared.</p>
-      <p>This short setup gets you started: in a minute you'll connect your bank (or enter things by hand) and land on a working dashboard. Everything can be changed later, and you can re-run this wizard from <b>Export &amp; settings</b>. Prefer to look around first?</p>
+      <p>This short setup gets you started: in a minute you'll connect your accounts (or enter things by hand) and land on a working dashboard. Everything can be changed later, and you can re-run this wizard from <b>Export &amp; settings</b>. Prefer to look around first?</p>
       <div class="btn-row"><button class="btn" onclick="wizSkip()">Explore with sample data</button><label class="btn filebtn">Restore from backup<input type="file" accept="application/json,.json" style="display:none" onchange="restoreBackup(event)"></label></div>
       <p class="mini">Already have a backup file from another device? Restore it to skip setup and bring all your data back.</p>
       <p class="mini">Not financial advice. For decisions with tax, legal, or major financial consequences, consult a licensed professional.</p>`;
@@ -5180,22 +5180,22 @@ function wizStep(){
         const la=S.accounts.filter(a=>a.plaidAccountId).length, ld=S.debts.filter(d=>d.plaidAccountId).length,
               lv=S.investments.filter(v=>v.plaidAccountId).length, lt=S.transactions.filter(t=>t.plaidId).length;
         return `
-      <h1>Bank connected ✓</h1>
+      <h1>Accounts connected ✓</h1>
       <p>Imported so far: <b>${la}</b> account${la!==1?'s':''}, <b>${lt}</b> transaction${lt!==1?'s':''}${ld?`, <b>${ld}</b> loan${ld!==1?'s':''} into the Debt tab`:''}${lv?`, <b>${lv}</b> investment account${lv!==1?'s':''}`:''}.</p>
       <p>Balances, transactions, loans and holdings now sync automatically whenever you open the app. The remaining steps are shorter — we've skipped what your bank already covered.</p>
-      <div class="btn-row"><button class="btn" onclick="wizConnectBank()">+ Connect another bank</button></div>`;
+      <div class="btn-row"><button class="btn" onclick="wizConnectBank()">+ Connect another institution</button></div>`;
       }
       if(avail){
         return `
-      <h1>Connect your bank <span class="mini">(recommended)</span></h1>
-      <p>Link your bank and Black Ink fills itself in: accounts, balances and transaction history import automatically — credit cards too, loans straight into the Debt tab with APR and payment details, and investment holdings into Investments. From then on it stays in sync on its own.</p>
-      <div class="btn-row" style="margin:16px 0"><button class="btn primary" onclick="wizConnectBank()">🔗 Connect a bank</button></div>
-      <p class="mini">Powered by Plaid — your bank login goes to Plaid, never to Black Ink. Disconnect any time from the Accounts tab.</p>
-      <p class="mini">Prefer to enter things by hand? Just press Continue — the next steps cover manual setup, and you can connect a bank later from the Accounts tab.</p>`;
+      <h1>Connect your accounts <span class="mini">(recommended)</span></h1>
+      <p>Link your financial institutions — banks, credit card issuers, brokerages, loan servicers — and Black Ink fills itself in: accounts, balances and transaction history import automatically, loans go straight into the Debt tab with APR and payment details, and investment holdings into Investments. From then on it stays in sync on its own.</p>
+      <div class="btn-row" style="margin:16px 0"><button class="btn primary" onclick="wizConnectBank()">🔗 Connect accounts</button></div>
+      <p class="mini">Powered by Plaid — your login goes to Plaid, never to Black Ink. Disconnect any time from the Accounts tab.</p>
+      <p class="mini">Prefer to enter things by hand? Just press Continue — the next steps cover manual setup, and you can connect accounts later from the Accounts tab.</p>`;
       }
       return `
-      <h1>Bank sync</h1>
-      <p>Automatic bank import needs a signed-in cloud account, and you're using Black Ink in local-only mode right now. No problem — the next steps set everything up by hand, and if you sign in later you can connect a bank from the Accounts tab.</p>`;
+      <h1>Account sync</h1>
+      <p>Automatic import needs a signed-in cloud account, and you're using Black Ink in local-only mode right now. No problem — the next steps set everything up by hand, and if you sign in later you can connect your accounts from the Accounts tab.</p>`;
     }
     case 'currency': return `
       <h1>Currency &amp; format</h1>
@@ -5205,7 +5205,7 @@ function wizStep(){
         <div><label class="fld">Locale</label><input type="text" id="wLoc" value="${esc(wiz.locale)}" placeholder="en-US"></div>
       </div>`;
     case 'accounts': return `
-      <h1>${wizLinked()?'Anything your bank didn’t cover? <span class="mini">(optional)</span>':'Your accounts'}</h1>
+      <h1>${wizLinked()?'Anything your linked accounts didn’t cover? <span class="mini">(optional)</span>':'Your accounts'}</h1>
       <p>${wizLinked()
         ?'Your linked accounts are already in. Add anything else here — cash, or accounts at banks that can’t be linked. Manual debts and investments can be added later from their tabs.'
         :'Add the accounts you want to track — checking, savings, credit cards, cash. Enter today’s balance for each. For credit cards, enter the balance owed as a positive number.'}</p>
@@ -5259,7 +5259,7 @@ function wizStep(){
       if(linked){
         const la=S.accounts.filter(a=>a.plaidAccountId).length, ld=S.debts.filter(d=>d.plaidAccountId).length,
               lv=S.investments.filter(v=>v.plaidAccountId).length, lt=S.transactions.filter(t=>t.plaidId).length;
-        items.push(`<li><b>${la}</b> linked bank account${la!==1?'s':''} · <b>${lt}</b> imported transaction${lt!==1?'s':''}${ld?` · <b>${ld}</b> loan${ld!==1?'s':''}`:''}${lv?` · <b>${lv}</b> investment account${lv!==1?'s':''}`:''} — syncing automatically</li>`);
+        items.push(`<li><b>${la}</b> linked account${la!==1?'s':''} · <b>${lt}</b> imported transaction${lt!==1?'s':''}${ld?` · <b>${ld}</b> loan${ld!==1?'s':''}`:''}${lv?` · <b>${lv}</b> investment account${lv!==1?'s':''}`:''} — syncing automatically</li>`);
       }
       if(wiz.accounts.length) items.push(`<li><b>${wiz.accounts.length}</b> manual account${wiz.accounts.length!==1?'s':''}</li>`);
       if(wiz.income.length) items.push(`<li><b>${wiz.income.length}</b> income source${wiz.income.length!==1?'s':''}</li>`);
@@ -5270,7 +5270,7 @@ function wizStep(){
       ${items.length?`<p>Here’s what you set up:</p><ul class="wiz-summary">${items.join('')}</ul>`:'<p>You skipped the details — that’s fine, everything can be added as you go.</p>'}
       <p>${linked
         ?'New transactions keep arriving from your bank automatically, and rules you create on the <b>Categories</b> tab will file them as they land.'
-        :'Next, connect a bank from the <b>Accounts</b> tab to import transactions automatically, or head to <b>Transactions → Import CSV</b> to load bank history.'} Tap <b>Finish setup</b> to build your dashboard.</p>`;
+        :'Next, connect your accounts from the <b>Accounts</b> tab to import transactions automatically, or head to <b>Transactions → Import CSV</b> to load bank history.'} Tap <b>Finish setup</b> to build your dashboard.</p>`;
     }
   }
 }
@@ -5529,10 +5529,10 @@ const TOUR=[
   { tab:'overview', target:navTarget, title:'Getting around', text:'Move between sections here — Overview, Transactions, Budget, Accounts, Debt, Investments and more.' },
   { tab:'overview', target:()=>document.getElementById('globalFilters'), title:'Account & date filters', text:'Everything on screen respects these. Filter by account, and by date range — this month, last 90 days, year to date, or a custom range.' },
   { tab:'overview', target:()=>document.querySelector('#content .ov-hero'), title:'Your dashboard', text:'The Overview is your at-a-glance picture: net cash flow, income, spending, budget left and net worth for the selected period.' },
-  { tab:'transactions', target:()=>document.querySelector('#content .filterbar'), title:'Transactions', text:'Every transaction lives here. They arrive automatically from your linked bank (or via CSV import), and you can search, filter and sort. This is the heart of the app.' },
+  { tab:'transactions', target:()=>document.querySelector('#content .filterbar'), title:'Transactions', text:'Every transaction lives here. They arrive automatically from your linked accounts (or via CSV import), and you can search, filter and sort. This is the heart of the app.' },
   { tab:'transactions', target:()=>document.querySelector('#content .cat-chip')||document.querySelector('#content .filterbar'), title:'Categorizing', text:'Tap a category chip to file a transaction, split one across categories, or tick several rows for bulk actions.' },
   { tab:'budget', target:()=>document.getElementById('budCatWrap')||document.querySelector('#content .card'), title:'Budgets', text:'Set a monthly budget for each category (and subcategory). The bars show how much you have left as the month goes on.' },
-  { tab:'accounts', target:()=>document.querySelector('#content .card'), title:'Accounts & bank sync', text:'Connect a bank here and balances, transactions, loans and holdings import themselves — then stay in sync automatically. Manual and cash accounts live here too; reconcile those to your statements.' },
+  { tab:'accounts', target:()=>document.querySelector('#content .card'), title:'Accounts & sync', text:'Connect your institutions here — banks, card issuers, brokerages, loan servicers — and balances, transactions, loans and holdings import themselves, then stay in sync automatically. Manual and cash accounts live here too; reconcile those to your statements.' },
   { tab:'debt', target:()=>document.querySelector('#content .card'), title:'Debt payoff', text:'Linked loans arrive with balance, APR and minimum payment filled in; add any others by hand. Log payments and compare payoff strategies (avalanche vs snowball) to find the fastest, cheapest route out.' },
   { tab:'investments', target:()=>document.querySelector('#content .card'), title:'Investments', text:'Holdings from linked brokerages sync automatically with prices and values. Track contributions and employer match, separating growth from money you added.' },
   { tab:'rules', target:()=>document.querySelector('#content .card'), title:'Categories & rules', text:'Teach Black Ink to file transactions automatically — a keyword like “VENMO” can always map to a category. Rules run on every bank sync and import, so you categorize each merchant once.' },

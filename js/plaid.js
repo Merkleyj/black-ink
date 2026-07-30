@@ -43,7 +43,7 @@
 
   /* ---------- connect flow ---------- */
   async function connectBank() {
-    if (!available()) { toast('Sign in to connect a bank', 'warn'); return; }
+    if (!available()) { toast('Sign in to connect accounts', 'warn'); return; }
     toast('Preparing secure connection…');
     let linkToken;
     try { linkToken = (await invoke('link_token')).link_token; }
@@ -86,7 +86,7 @@
       const res = mapPlaidData(data);
       S.plaidLastSync = Date.now();
       save(); render();
-      if ((S.plaidReauth || []).length) toast('A bank connection needs to be reconnected — see the Accounts tab', 'warn');
+      if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');
       else toast(`Synced — ${res.imported} new, ${res.updated} updated${res.removed ? ', ' + res.removed + ' removed' : ''}`, 'ok');
     } catch (e) {
       toast('Sync failed: ' + e.message, 'err');
@@ -113,8 +113,8 @@
       save();
       if (res.imported || res.updated || res.removed || (S.plaidReauth || []).length) {
         render();
-        if ((S.plaidReauth || []).length) toast('A bank connection needs to be reconnected — see the Accounts tab', 'warn');
-        else toast(`Bank sync — ${res.imported} new transaction${res.imported === 1 ? '' : 's'}`, 'ok');
+        if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');
+        else toast(`Account sync — ${res.imported} new transaction${res.imported === 1 ? '' : 's'}`, 'ok');
       }
     } catch (e) { /* silent: manual Sync now still surfaces errors */ }
   }
@@ -364,7 +364,7 @@
       S.plaidItems = (S.plaidItems || []).filter(i => i.item_id !== itemId);
       S.plaidReauth = (S.plaidReauth || []).filter(r => r.item_id !== itemId);
       save();
-      toast('Bank disconnected — its accounts are now manual', 'ok'); render();
+      toast('Institution disconnected — its accounts are now manual', 'ok'); render();
     }
     catch (e) { toast('Could not disconnect: ' + e.message, 'err'); }
   }
