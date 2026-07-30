@@ -4031,7 +4031,7 @@ function viewRules(){
           <span class="mini" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.description||'')}">${esc(t.merchant||t.description||'—')}</span>
           <span class="mini">${fmtDate(t.date)} · ${((t.kind||t.flow)==='income'?'+':'−')+money(Math.abs(t.amount)).replace('−','')} · ${esc(accountName(t.accountId))} · matches <b id="ukn_${t.id}">${ruleMatchCount(kw)}</b></span>
         </div>
-        <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}${transferOptgroup(sg)}</select>
+        <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}</select>
         <span class="ur-flags">
           <label title="Recurring — mark this merchant's transactions as a scheduled bill"><input type="checkbox" id="ur_${t.id}">↻</label>
           <label title="Review — flag future imports matching this rule with a review badge"><input type="checkbox" id="uf_${t.id}">⚑</label>
