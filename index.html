@@ -4536,7 +4536,7 @@ function scanQuality(){
   const _drec=new Set((S.settings.dismissedRecurring)||[]);
   const recurCandidates=detectRecurringCandidates().filter(r=>!_drec.has(r.key));
   groups.push({title:'Possible recurring charges',icon:'↻',tone:'note',help:'The same merchant appears in 3+ months at a similar amount.',
-    items:recurCandidates.map(r=>({label:`${esc(r.merchant)} · ~${money(r.amt)} · ${r.months} months`,action:`<button class="btn sm" onclick="qMarkRecurring('${esc(r.key)}')">Mark recurring</button> <button class="btn sm" onclick="qDismissRecurring('${esc(r.key)}')">Dismiss</button>`}))});
+    items:recurCandidates.map(r=>{const karg=esc(JSON.stringify(r.key));return {label:`${esc(r.merchant)} · ~${money(r.amt)} · ${r.months} months`,action:`<button class="btn sm" onclick="qMarkRecurring(${karg})">Mark recurring</button> <button class="btn sm" onclick="qDismissRecurring(${karg})">Dismiss</button>`};})});
 
   // stale account balances
   const now=Date.now();
