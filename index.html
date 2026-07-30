@@ -3075,7 +3075,7 @@ function viewAccounts(){
     const bal=Number(d.currentBalance)||0;
     const tlabel=(DEBT_TYPES.find(t=>t[0]===d.type)||[])[1]||(d.type||'Loan');
     const inPromo=d.promoExpiration && new Date()<new Date(d.promoExpiration);
-    const aprTxt= inPromo? `${pct(effectiveApr(d))} promo APR until ${fmtDate(d.promoExpiration)} (then ${pct(Number(d.apr)||0)})` : `${pct(Number(d.apr)||0)} APR`;
+    const aprTxt= inPromo? `${pct(effectiveApr(d),2)} promo APR until ${fmtDate(d.promoExpiration)} (then ${pct(Number(d.apr)||0,2)})` : `${pct(Number(d.apr)||0,2)} APR`;
     return `<div class="card" style="margin-bottom:12px"><div class="bd" style="padding:14px 16px">
       <div style="display:flex;align-items:center;gap:10px">
         <div style="flex:1">
