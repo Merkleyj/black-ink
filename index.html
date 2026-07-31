@@ -493,9 +493,7 @@
 <style>
   /* ---- supplemental styles for review / rules / quality / export / wizard ---- */
   .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:13px;margin-bottom:18px}
-  /* auto-fit so the pair drops to one column once each half is too narrow to
-     hold a 4–5 column table (tablet / half-screen widths) */
-  .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(430px,100%),1fr));gap:18px;margin-bottom:18px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
   .page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px;flex-wrap:wrap}
   .page-head h1{font-size:27px;margin:0 0 4px;letter-spacing:-.025em}
   .page-head .sub{color:var(--muted);font-size:13.5px;max-width:62ch;margin:0}
@@ -617,38 +615,11 @@
 
   /* ---- mobile: two-up KPI/stat rows across all tabs ---- */
   @media (max-width:880px){
-    /* minmax(0,…) so a wide child (table, long figure) can never push the
-       track — and therefore the card — past the viewport edge */
-    .kpi-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .grid-2{grid-template-columns:minmax(0,1fr);gap:14px}   /* Review: stack paired blocks vertically */
+    .kpi-row{grid-template-columns:1fr 1fr;gap:10px}
+    .mini-grid{grid-template-columns:1fr 1fr}
+    .grid-2{grid-template-columns:1fr;gap:14px}   /* Review: stack paired blocks vertically */
     .kpi{padding:13px 14px}
-    .kpi .val{font-size:20px;overflow-wrap:anywhere}
-    .mini-grid b{overflow-wrap:anywhere}
-
-    /* Review: table rows become stacked cards. Multi-column tables can't be
-       squeezed into a phone width without clipping, so each row is laid out
-       as a two-column card: title + headline figure on the first line, the
-       remaining fields labelled underneath. */
-    table.rvw-tbl,table.rvw-tbl tbody{display:block}
-    table.rvw-tbl thead{display:none}
-    table.rvw-tbl tr{
-      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;
-      align-items:start;padding:11px 13px;margin-bottom:8px;
-      border:1px solid var(--line);border-radius:11px;background:var(--surface-2);
-    }
-    table.rvw-tbl tr:last-child{margin-bottom:0}
-    table.tbl.rvw-tbl td{
-      display:block;border:none;padding:0;min-width:0;
-      overflow-wrap:anywhere;text-align:left;line-height:1.35;
-    }
-    table.rvw-tbl td[data-l]::before{
-      content:attr(data-l);display:block;font-size:9.5px;text-transform:uppercase;
-      letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:1px;
-    }
-    table.tbl.rvw-tbl td.tt{order:-2;grid-column:1;align-self:end;font-weight:600;font-size:13.5px;color:var(--ink)}
-    table.tbl.rvw-tbl td.amt{order:-1;grid-column:2;font-weight:700;font-size:13.5px;text-align:right}
-    table.rvw-tbl td.amt::before{text-align:right}
+    .kpi .val{font-size:20px}
 
     /* Transactions: table rows become stacked cards */
     #txTableWrap table,#txTableWrap tbody{display:block}
@@ -3982,14 +3953,14 @@ function viewReview(){
   <div class="grid-2">
     <div class="card">
       <h3>Over budget <span class="pill ${over.length?'red':'green'}">${over.length}</span></h3>
-      ${over.length? `<table class="tbl compact rvw-tbl"><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Over</th></tr></thead><tbody>
-        ${over.map(o=>`<tr><td class="tt">${esc(o.cat)}</td><td class="r" data-l="Budget">${money(o.planned)}</td><td class="r" data-l="Actual">${money(o.actual)}</td><td class="r neg amt" data-l="Over">${money(o.diff)}</td></tr>`).join('')}
+      ${over.length? `<table class="tbl compact"><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Over</th></tr></thead><tbody>
+        ${over.map(o=>`<tr><td>${esc(o.cat)}</td><td class="r">${money(o.planned)}</td><td class="r">${money(o.actual)}</td><td class="r neg">${money(o.diff)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No categories exceeded their budget.</p>`}
     </div>
     <div class="card">
       <h3>Under budget <span class="pill green">${under.length}</span></h3>
-      ${under.length? `<table class="tbl compact rvw-tbl"><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Left</th></tr></thead><tbody>
-        ${under.slice(0,8).map(o=>`<tr><td class="tt">${esc(o.cat)}</td><td class="r" data-l="Budget">${money(o.planned)}</td><td class="r" data-l="Actual">${money(o.actual)}</td><td class="r pos amt" data-l="Left">${money(o.diff)}</td></tr>`).join('')}
+      ${under.length? `<table class="tbl compact"><thead><tr><th>Category</th><th class="r">Budget</th><th class="r">Actual</th><th class="r">Left</th></tr></thead><tbody>
+        ${under.slice(0,8).map(o=>`<tr><td>${esc(o.cat)}</td><td class="r">${money(o.planned)}</td><td class="r">${money(o.actual)}</td><td class="r pos">${money(o.diff)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No budgets set, or all were exceeded.</p>`}
     </div>
   </div>
@@ -3997,15 +3968,15 @@ function viewReview(){
   <div class="grid-2">
     <div class="card">
       <h3>Largest expenses</h3>
-      ${expenses.length? `<table class="tbl compact rvw-tbl"><thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>
-        ${expenses.map(t=>`<tr><td class="nowrap" data-l="Date">${fmtDate(t.date)}</td><td class="tt">${esc(merchantLabel(t))}</td><td data-l="Category">${esc(t.category||'Uncategorized')}</td><td class="r amt" data-l="Amount">${money(txFlow(t).spending)}</td></tr>`).join('')}
+      ${expenses.length? `<table class="tbl compact"><thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>
+        ${expenses.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'Uncategorized')}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No spending recorded.</p>`}
     </div>
     <div class="card">
       <h3>Unusual transactions</h3>
       <p class="mini">Larger than typical for their category, or one-off amounts over ${money(400)}.</p>
-      ${unusual.length? `<table class="tbl compact rvw-tbl"><thead><tr><th>Date</th><th>Merchant</th><th class="r">Amount</th></tr></thead><tbody>
-        ${unusual.map(t=>`<tr><td class="nowrap" data-l="Date">${fmtDate(t.date)}</td><td class="tt">${esc(merchantLabel(t))}</td><td class="r amt" data-l="Amount">${money(txFlow(t).spending)}</td></tr>`).join('')}
+      ${unusual.length? `<table class="tbl compact"><thead><tr><th>Date</th><th>Merchant</th><th class="r">Amount</th></tr></thead><tbody>
+        ${unusual.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${esc(merchantLabel(t))}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">Nothing flagged as unusual.</p>`}
     </div>
   </div>
@@ -4013,14 +3984,14 @@ function viewReview(){
   <div class="grid-2">
     <div class="card">
       <h3>Recurring this month</h3>
-      ${recurringBills.length? `<table class="tbl compact rvw-tbl"><thead><tr><th>Merchant</th><th>Category</th><th>Date</th><th class="r">Amount</th></tr></thead><tbody>
-        ${recurringBills.map(t=>`<tr><td class="tt">${esc(merchantLabel(t))}</td><td data-l="Category">${esc(t.category||'—')}</td><td class="nowrap" data-l="Date">${fmtDate(t.date)}</td><td class="r amt" data-l="Amount">${money(txFlow(t).spending)}</td></tr>`).join('')}
+      ${recurringBills.length? `<table class="tbl compact"><thead><tr><th>Merchant</th><th>Category</th><th>Date</th><th class="r">Amount</th></tr></thead><tbody>
+        ${recurringBills.map(t=>`<tr><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'—')}</td><td class="nowrap">${fmtDate(t.date)}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No transactions marked recurring. You can mark them on the Transactions tab.</p>`}
     </div>
     <div class="card">
       <h3>Upcoming debt due dates</h3>
-      ${debtDue.length? `<table class="tbl compact rvw-tbl"><thead><tr><th>Debt</th><th class="r">Due day</th><th class="r">Min payment</th></tr></thead><tbody>
-        ${debtDue.map(d=>`<tr><td class="tt">${esc(d.name)}</td><td class="r" data-l="Due day">${d.day}</td><td class="r amt" data-l="Min payment">${money(d.amt)}</td></tr>`).join('')}
+      ${debtDue.length? `<table class="tbl compact"><thead><tr><th>Debt</th><th class="r">Due day</th><th class="r">Min payment</th></tr></thead><tbody>
+        ${debtDue.map(d=>`<tr><td>${esc(d.name)}</td><td class="r">${d.day}</td><td class="r">${money(d.amt)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No active debts with balances.</p>`}
     </div>
   </div>
@@ -4028,8 +3999,8 @@ function viewReview(){
   <div class="card">
     <h3>Subscriptions <span class="pill ${subs.length?'blue':'green'}">${subs.length}</span></h3>
     <p class="mini">Charges categorized under “Subscriptions” in this period${subTotal>0?`, totaling <b>${money(subTotal)}</b>`:''}.</p>
-    ${subs.length? `<table class="tbl compact rvw-tbl"><thead><tr><th>Service</th><th>Type</th><th>Last charge</th><th class="r">Charges</th><th class="r">Total</th></tr></thead><tbody>
-      ${subs.map(s=>`<tr><td class="tt">${esc(s.name)}</td><td data-l="Type">${esc(s.sub||'—')}</td><td class="nowrap" data-l="Last charge">${s.lastDate?fmtDate(s.lastDate):'—'}</td><td class="r" data-l="Charges">${s.count}</td><td class="r amt" data-l="Total">${money(s.total)}</td></tr>`).join('')}
+    ${subs.length? `<table class="tbl compact"><thead><tr><th>Service</th><th>Type</th><th>Last charge</th><th class="r">Charges</th><th class="r">Total</th></tr></thead><tbody>
+      ${subs.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.sub||'—')}</td><td class="nowrap">${s.lastDate?fmtDate(s.lastDate):'—'}</td><td class="r">${s.count}</td><td class="r">${money(s.total)}</td></tr>`).join('')}
     </tbody></table>` : `<p class="muted">No subscriptions found. Categorize recurring services under the Subscriptions category to see them here.</p>`}
   </div>
 
