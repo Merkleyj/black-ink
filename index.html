@@ -1939,11 +1939,13 @@ function kpi(lbl,val,delta='',valClass='',tipText=''){
 function totalCash(){ return S.accounts.filter(a=>['checking','savings','cash'].includes(a.type)&&a.includeInNetWorth!==false&&a.active!==false).reduce((s,a)=>s+accountBalance(a),0); }
 function balByType(type){ return S.accounts.filter(a=>a.type===type&&a.active!==false).reduce((s,a)=>s+accountBalance(a),0); }
 function totalDebt(){
-  const cardBal=S.accounts.filter(a=>a.type==='credit'&&a.active!==false).reduce((s,a)=>s+Math.max(0,-accountBalance(a)),0);
+  // Credit-card AND loan-type accounts both count (loan accounts used to be
+  // displayed as liabilities but silently excluded here).
+  const acctBal=S.accounts.filter(a=>(a.type==='credit'||a.type==='loan')&&a.active!==false).reduce((s,a)=>s+Math.max(0,-accountBalance(a)),0);
   // cardMirror debts are payoff-tracking views of linked cards whose balance
   // is already counted above — skip them so nothing double-counts.
   const loanBal=S.debts.filter(d=>!d.cardMirror).reduce((s,d)=>s+(Number(d.currentBalance)||0),0);
-  return cardBal+loanBal;
+  return acctBal+loanBal;
 }
 function totalInvest(){ return S.investments.reduce((s,inv)=>s+invValue(inv),0); }
 function invValue(inv){ return (inv.holdings||[]).reduce((s,h)=>s+(Number(h.currentValue)|| (Number(h.quantity)||0)*(Number(h.currentPrice)||0) ),0); }
@@ -3070,6 +3072,7 @@ function viewAccounts(){
         <div style="display:flex;flex-direction:column;gap:5px">
           <button class="btn sm" onclick="reconcile('${a.id}')">Reconcile</button>
           <button class="btn sm ghost" onclick="editAccount('${a.id}')">Edit</button>
+          ${a.type==='loan'&&!txCount&&!a.plaidAccountId?`<button class="btn sm ghost" title="Loans get APR tracking, payoff projections and payment history in the Debt tab" onclick="convertLoanAccountToDebt('${a.id}')">→ Debt tab</button>`:''}
         </div>
       </div>
     </div></div>`;
@@ -3428,6 +3431,26 @@ function saveDebt(id){
   save(); closeModal(); render();
 }
 function delDebt(id){ const d=S.debts.find(x=>x.id===id); const msg=d&&d.cardMirror?'This stops payoff tracking for the linked card and removes its payment history here. The card itself stays in Accounts and keeps syncing.':'This removes the debt and its payment history.'; confirmBox('Delete debt',msg,()=>{ S.debts=S.debts.filter(x=>x.id!==id); save(); closeModal(); render(); },'Delete',true); }
+
+/* Convert a manual loan-type account (no transactions) into a Debt-tab entry:
+   loans belong in the Debt tab, where they get APR, accrual, payoff planning
+   and payment history — and still show on the Accounts page as liabilities. */
+function convertLoanAccountToDebt(acctId){
+  const a=S.accounts.find(x=>x.id===acctId); if(!a||a.type!=='loan') return;
+  if(S.transactions.some(t=>t.accountId===a.id)){ toast('This loan account has transactions — keep it as an account','warn'); return; }
+  const bal=Math.abs(accountBalance(a));
+  confirmBox('Move to Debt tab',`Moves “${esc(a.name)}” (${money(bal)}) into the Debt tab as a tracked debt. You'll set its APR and minimum payment next.`,()=>{
+    closeModal();
+    const d={id:uid('debt'),name:a.name,lender:a.institution||'',type:'personal',originalPrincipal:bal,currentBalance:bal,
+      apr:0,rateType:'fixed',minPayment:0,dueDay:1,creditLimit:'',promoRate:'',promoExpiration:'',capitalization:'',
+      startDate:'',termMonths:'',notes:'',payments:[]};
+    S.debts.push(d);
+    S.accounts=S.accounts.filter(x=>x.id!==a.id);
+    save(); render();
+    editDebt(d.id);
+    toast('Moved to the Debt tab — set the APR and minimum payment','ok');
+  },'Move',false);
+}
 
 /* "Track as payoff debt" for a linked credit card: creates a Debt-tab mirror.
    Balance anchors to Plaid on every sync; APR / minimum arrive with the next
@@ -5265,7 +5288,7 @@ function wizStep(){
       ${wizList('accounts', wiz.accounts.map((a,i)=>`<div class="wiz-item"><b>${esc(a.name)}</b> · ${a.type} · ${money(a.startingBalance)} <button class="icon-btn danger" onclick="wizDel('accounts',${i})">×</button></div>`).join(''))}
       <div class="form-grid wiz-add">
         <div><label class="fld">Name</label><input type="text" id="waName" placeholder="e.g. Main checking"></div>
-        <div><label class="fld">Type</label><select id="waType">${ACCT_TYPES.filter(t=>t[0]!=='investment').map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select></div>
+        <div><label class="fld">Type</label><select id="waType">${ACCT_TYPES.filter(t=>!['investment','loan'].includes(t[0])).map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select></div>
         <div><label class="fld">Current balance</label><input type="number" step="0.01" id="waBal" value="0"></div>
         <div><label class="fld">Institution (optional)</label><input type="text" id="waInst"></div>
       </div>
