@@ -1937,7 +1937,9 @@ function totalCash(){ return S.accounts.filter(a=>['checking','savings','cash'].
 function balByType(type){ return S.accounts.filter(a=>a.type===type&&a.active!==false).reduce((s,a)=>s+accountBalance(a),0); }
 function totalDebt(){
   const cardBal=S.accounts.filter(a=>a.type==='credit'&&a.active!==false).reduce((s,a)=>s+Math.max(0,-accountBalance(a)),0);
-  const loanBal=S.debts.reduce((s,d)=>s+(Number(d.currentBalance)||0),0);
+  // cardMirror debts are payoff-tracking views of linked cards whose balance
+  // is already counted above — skip them so nothing double-counts.
+  const loanBal=S.debts.filter(d=>!d.cardMirror).reduce((s,d)=>s+(Number(d.currentBalance)||0),0);
   return cardBal+loanBal;
 }
 function totalInvest(){ return S.investments.reduce((s,inv)=>s+invValue(inv),0); }
@@ -3129,7 +3131,7 @@ function viewAccounts(){
     <div><h3 style="margin-bottom:10px;font-size:14px">Assets</h3>${assets.length?assets.map(acctCard).join(''):'<div class="card"><div class="bd">'+emptyState('No asset accounts','Add checking, savings, or cash accounts.','')+'</div></div>'}
       ${S.manualAssets.filter(m=>m.kind!=='liability').map(manualAssetRow).join('')}
     </div>
-    <div><h3 style="margin-bottom:10px;font-size:14px">Liabilities</h3>${(liabs.length||S.debts.length)?(liabs.map(acctCard).join('')+S.debts.map(debtLiabCard).join('')):'<div class="card"><div class="bd">'+emptyState('No liability accounts','Credit cards and loans you add in the Debt tab appear here.','')+'</div></div>'}
+    <div><h3 style="margin-bottom:10px;font-size:14px">Liabilities</h3>${(liabs.length||S.debts.length)?(liabs.map(acctCard).join('')+S.debts.filter(d=>!d.cardMirror).map(debtLiabCard).join('')):'<div class="card"><div class="bd">'+emptyState('No liability accounts','Credit cards and loans you add in the Debt tab appear here.','')+'</div></div>'}
       ${S.manualAssets.filter(m=>m.kind==='liability').map(manualAssetRow).join('')}
     </div>
   </div>
@@ -3349,6 +3351,14 @@ function viewDebt(){
     <button class="btn" onclick="openPayoffPlanner()">⚖ Compare payoff strategies</button>
   </div>
 
+  ${(()=>{ const cands=S.accounts.filter(a=>a.type==='credit'&&a.plaidAccountId&&a.active!==false&&!S.debts.some(d=>d.plaidAccountId===a.plaidAccountId));
+    if(!cands.length) return '';
+    return `<div class="card" style="margin-bottom:16px"><div class="bd" style="padding:14px 16px">
+      <div style="font-weight:650">Track a linked card as payoff debt</div>
+      <div class="mini" style="margin:4px 0 10px">For a card you're paying down over time (not paying off monthly): get APR, payoff projections and automatic payment history here in the Debt tab. Balance stays synced from your bank; nothing double-counts.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${cands.map(a=>`<button class="btn sm" onclick="trackCardAsDebt('${a.id}')">+ ${esc(a.name)} · ${money(Math.max(0,-accountBalance(a)))}</button>`).join('')}</div>
+    </div></div>`; })()}
+
   <div class="card" style="margin-bottom:16px"><div class="table-scroll"><table class="debt-tbl">
     <thead><tr><th>Debt</th><th class="r">Balance</th><th class="r">${tip(GLOSS.apr,'APR')}</th><th class="r">Min pmt</th><th class="r">Interest</th><th class="r">${tip(GLOSS.utilization,'Util')}</th><th>Est. payoff (min only)</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>
@@ -3393,7 +3403,22 @@ function saveDebt(id){
   else { S.debts.push({id:uid('debt'),...data,payments:[]}); }
   save(); closeModal(); render();
 }
-function delDebt(id){ confirmBox('Delete debt','This removes the debt and its payment history.',()=>{ S.debts=S.debts.filter(d=>d.id!==id); save(); closeModal(); render(); },'Delete',true); }
+function delDebt(id){ const d=S.debts.find(x=>x.id===id); const msg=d&&d.cardMirror?'This stops payoff tracking for the linked card and removes its payment history here. The card itself stays in Accounts and keeps syncing.':'This removes the debt and its payment history.'; confirmBox('Delete debt',msg,()=>{ S.debts=S.debts.filter(x=>x.id!==id); save(); closeModal(); render(); },'Delete',true); }
+
+/* "Track as payoff debt" for a linked credit card: creates a Debt-tab mirror.
+   Balance anchors to Plaid on every sync; APR / minimum arrive with the next
+   sync's liability data; payments to the card auto-post into history. */
+function trackCardAsDebt(acctId){
+  const a=S.accounts.find(x=>x.id===acctId); if(!a||!a.plaidAccountId) return;
+  if(S.debts.some(d=>d.plaidAccountId===a.plaidAccountId)){ toast('Already tracked','warn'); return; }
+  const bal=Math.max(0,-accountBalance(a));
+  S.debts.push({id:uid('debt'),name:a.name,lender:a.institution||'',type:'credit',originalPrincipal:bal,currentBalance:bal,
+    apr:0,rateType:'variable',minPayment:0,dueDay:1,creditLimit:'',promoRate:'',promoExpiration:'',capitalization:'',
+    startDate:toISODate(new Date()),termMonths:'',notes:'Payoff tracking for a linked card — balance, APR and minimum payment sync from your bank.',
+    payments:[],plaidAccountId:a.plaidAccountId,linked:true,cardMirror:true});
+  save(); render();
+  toast('Now tracking '+a.name+' as payoff debt — APR and minimum arrive on the next sync','ok');
+}
 
 function logPayment(id){
   const d=S.debts.find(x=>x.id===id);

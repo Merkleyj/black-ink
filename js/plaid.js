@@ -87,7 +87,7 @@
       S.plaidLastSync = Date.now();
       save(); render();
       if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');
-      else toast(`Synced — ${res.imported} new, ${res.updated} updated${res.removed ? ', ' + res.removed + ' removed' : ''}`, 'ok');
+      else toast(`Synced — ${res.imported} new, ${res.updated} updated${res.removed ? ', ' + res.removed + ' removed' : ''}${res.autoPosted ? ` · ${res.autoPosted} debt payment${res.autoPosted === 1 ? '' : 's'} logged` : ''}`, 'ok');
     } catch (e) {
       toast('Sync failed: ' + e.message, 'err');
     } finally {
@@ -110,10 +110,10 @@
       const res = mapPlaidData(data);
       S.plaidLastSync = Date.now();
       save();
-      if (res.imported || res.updated || res.removed || (S.plaidReauth || []).length) {
+      if (res.imported || res.updated || res.removed || res.autoPosted || (S.plaidReauth || []).length) {
         render();
         if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');
-        else toast(`Account sync — ${res.imported} new transaction${res.imported === 1 ? '' : 's'}`, 'ok');
+        else toast(`Account sync — ${res.imported} new transaction${res.imported === 1 ? '' : 's'}${res.autoPosted ? ` · ${res.autoPosted} debt payment${res.autoPosted === 1 ? '' : 's'} logged` : ''}`, 'ok');
       }
     } catch (e) { /* silent: manual Sync now still surfaces errors */ }
     finally { _silentSyncing = false; }
@@ -245,8 +245,14 @@
 
   function applyLiability(row) {
     const d = S.debts.find(x => x.plaidAccountId === row.account_id);
-    if (!d) return; // credit cards live in S.accounts, not S.debts — skip their liability rows
-    if (row.kind === 'student') {
+    if (!d) return; // untracked credit cards live in S.accounts only — skip their liability rows
+    if (row.kind === 'credit') {
+      // Card marked "track as payoff debt": pull APR / minimum / due day.
+      const apr = (row.aprs || []).find(a => a.apr_type === 'purchase_apr') || (row.aprs || [])[0];
+      if (apr && apr.apr_percentage != null) d.apr = apr.apr_percentage;
+      if (row.minimum_payment_amount != null) d.minPayment = row.minimum_payment_amount;
+      const cday = dayFromISO(row.next_payment_due_date); if (cday) d.dueDay = cday;
+    } else if (row.kind === 'student') {
       if (row.interest_rate_percentage != null) d.apr = row.interest_rate_percentage;
       if (row.minimum_payment_amount != null) d.minPayment = row.minimum_payment_amount;
       if (row.origination_principal_amount != null) d.originalPrincipal = row.origination_principal_amount;
@@ -257,6 +263,73 @@
       if (row.origination_principal_amount != null) d.originalPrincipal = row.origination_principal_amount;
       const day = dayFromISO(row.next_payment_due_date); if (day) d.dueDay = day;
     }
+  }
+
+  /* ---------- auto-post debt payments ----------
+     Recognize synced transactions that are payments toward tracked debts and
+     log them into payment history with a date-aware principal/interest split
+     (uses the same accrual engine as manual logging). Conservative matching:
+     high-confidence cases only — anything ambiguous is left alone. */
+  function autoPostPayments(txs) {
+    if (!txs || !txs.length || typeof interestForPayment !== 'function') return 0;
+    let n = 0;
+    const LOANISH = /STUDENT|EDFINANCIAL|NELNET|MOHELA|AIDVANTAGE|NAVIENT|SALLIE ?MAE|GREAT ?LAKES|LOAN (PMT|PAYMENT)|LN PMT|LOAN PAY/i;
+    const post = (d, amt, date, pid) => {
+      d.payments = d.payments || [];
+      if (pid && d.payments.some(p => p.plaidTxId === pid)) return;   // idempotent across re-syncs
+      const interest = Math.min(interestForPayment(d, date), amt);
+      const principal = Math.max(0, amt - interest);
+      // Manual debts track their own balance; linked/mirror debts get theirs from Plaid.
+      if (!d.plaidAccountId) d.currentBalance = Math.max(0, (Number(d.currentBalance) || 0) - principal);
+      d.payments.push({ month: (typeof monthKey === 'function') ? monthKey(date) : String(date).slice(0, 7),
+        date, minPayment: d.minPayment, actualPaid: amt, extraPrincipal: 0, fees: 0, newCharges: 0,
+        interest, principal, auto: true, plaidTxId: pid });
+      n++;
+    };
+    // We know this is a loan payment — override even if the generic heuristics
+    // already filed it as a card payment (e.g. servicer descriptions with AUTOPAY).
+    const markLoanTransfer = (tx) => {
+      tx.transfer = true; tx.category = 'Transfers';
+      tx.subcategory = (typeof transferSubLike === 'function') ? transferSubLike(/loan|student/i, 'Loan payment') : 'Loan payment';
+    };
+    txs.forEach(tx => {
+      const amt = Math.abs(Number(tx.amount) || 0); if (!amt || !tx.date) return;
+      const acct = S.accounts.find(a => a.id === tx.accountId);
+      // 1) Payment arriving AT a linked card that's tracked as a payoff debt —
+      //    highest confidence: it's on the card's own account.
+      if (acct && acct.type === 'credit' && (Number(tx.signed) || 0) > 0 && tx.transfer) {
+        const d = S.debts.find(x => x.cardMirror && x.plaidAccountId === acct.plaidAccountId);
+        if (d) post(d, amt, tx.date, tx.plaidId);
+        return;
+      }
+      // 2) Outflow from a depository account matching manual debts.
+      if (!acct || acct.type === 'credit' || (Number(tx.signed) || 0) >= 0) return;
+      const desc = ((tx.description || '') + ' ' + (tx.merchant || '')).toUpperCase();
+      const manual = S.debts.filter(d => !d.plaidAccountId && (Number(d.minPayment) || 0) > 0);
+      // exact single-debt match: amount equals one debt's minimum AND the
+      // description mentions the loan / lender / debt name
+      const single = manual.filter(d => Math.abs((Number(d.minPayment) || 0) - amt) <= 0.05 &&
+        (LOANISH.test(desc) ||
+         (d.name && d.name.length > 3 && desc.includes(d.name.toUpperCase().slice(0, 12))) ||
+         (d.lender && d.lender.length > 3 && desc.includes(d.lender.toUpperCase()))));
+      if (single.length === 1) { post(single[0], amt, tx.date, tx.plaidId); markLoanTransfer(tx); return; }
+      if (single.length > 1) return; // ambiguous — leave for manual logging
+      // group match: one loan-ish withdrawal covering a whole type group's
+      // minimums (e.g. a servicer autopay spanning several student loans)
+      if (!LOANISH.test(desc)) return;
+      const groups = {};
+      manual.forEach(d => { (groups[d.type] = groups[d.type] || []).push(d); });
+      for (const type in groups) {
+        const g = groups[type]; if (g.length < 2) continue;
+        const sum = g.reduce((s, d) => s + (Number(d.minPayment) || 0), 0);
+        if (Math.abs(sum - amt) <= 2) {
+          g.forEach(d => post(d, Number(d.minPayment) || 0, tx.date, tx.plaidId));
+          markLoanTransfer(tx);
+          return;
+        }
+      }
+    });
+    return n;
   }
 
   function applyHoldings(holdings, securities) {
@@ -299,7 +372,12 @@
       if (pa.item_id) S.plaidAcctItem[pa.account_id] = pa.item_id;
       if (pa.type === 'loan') ensureDebt(pa);
       else if (pa.type === 'investment') ensureInvestment(pa);
-      else ensureAccount(pa);
+      else {
+        ensureAccount(pa);
+        // Card tracked as payoff debt: keep its mirror's balance anchored to Plaid.
+        const md = S.debts.find(d => d.cardMirror && d.plaidAccountId === pa.account_id);
+        if (md && pa.balances && pa.balances.current != null) md.currentBalance = Math.abs(pa.balances.current);
+      }
     });
     (data.liabilities || []).forEach(applyLiability);
     applyHoldings(data.holdings, data.securities);
@@ -332,6 +410,7 @@
       if (ex) { Object.assign(ex, toAppTx(t), { id: ex.id, category: ex.category, subcategory: ex.subcategory, manualCat: ex.manualCat }); res.updated++; }
     });
     // 4) added (skip if we already have this Plaid id, or a matching manual/CSV row)
+    const newTxs = [];
     (data.added || []).forEach(t => {
       if (byPlaidId.has(t.transaction_id)) return;
       const tx = toAppTx(t);
@@ -360,7 +439,9 @@
         }
       }
       S.transactions.push(tx); byPlaidId.set(t.transaction_id, tx); res.imported++;
+      newTxs.push(tx);
     });
+    res.autoPosted = autoPostPayments(newTxs);
 
     // 5) reconcile each linked account's starting balance so the shown balance matches Plaid
     (data.accounts || []).forEach(pa => {
