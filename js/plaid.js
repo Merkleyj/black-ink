@@ -302,10 +302,11 @@
         if (d) post(d, amt, tx.date, tx.plaidId);
         return;
       }
-      // 2) Outflow from a depository account matching manual debts.
+      // 2) Outflow from a depository account matching tracked debts (manual or
+      //    linked loans — but not card mirrors, which post from the card side).
       if (!acct || acct.type === 'credit' || (Number(tx.signed) || 0) >= 0) return;
       const desc = ((tx.description || '') + ' ' + (tx.merchant || '')).toUpperCase();
-      const manual = S.debts.filter(d => !d.plaidAccountId && (Number(d.minPayment) || 0) > 0);
+      const manual = S.debts.filter(d => !d.cardMirror && (Number(d.minPayment) || 0) > 0);
       // exact single-debt match: amount equals one debt's minimum AND the
       // description mentions the loan / lender / debt name
       const single = manual.filter(d => Math.abs((Number(d.minPayment) || 0) - amt) <= 0.05 &&
@@ -417,25 +418,31 @@
       if (!tx.accountId) return; // loan/investment account activity isn't imported as transactions
       const fp = (typeof txFingerprint === 'function') ? txFingerprint(tx.accountId, tx.date, tx.description, tx.signed) : null;
       if (fp && S.transactions.some(x => !x.plaidId && typeof txFingerprint === 'function' && txFingerprint(x.accountId, x.date, x.description, x.signed) === fp)) return;
-      // Same credit-card payment / transfer heuristics as the CSV import path,
-      // so both halves of a card payment pair up as transfers automatically.
-      const appAcct = S.accounts.find(x => x.id === tx.accountId);
-      if (typeof looksLikeCardPayment === 'function' &&
-          (looksLikeCardPayment(tx.description) ||
-           (appAcct && appAcct.type === 'credit' && tx.kind === 'income' && looksLikeTransfer(tx.description)))) {
-        tx.transfer = true; tx.category = 'Transfers';
-        tx.subcategory = transferSubLike(/credit\s*card/i, 'Credit card payment');
-      } else if (typeof looksLikeTransfer === 'function' && looksLikeTransfer(tx.description)) {
-        tx.transfer = true; tx.category = 'Transfers';
-        tx.subcategory = transferSubLike(/account/i, 'Account transfer');
-      } else if (typeof applyRules === 'function') {
-        applyRules(tx);
-        // Same per-match import behaviors as the CSV path: rules can flag for
-        // review or mark recurring, applied at import time only.
-        if (tx.ruleApplied) {
+      // User rules run FIRST — explicit teaching beats the generic transfer
+      // heuristics (e.g. a lender rule wins over the EPAY card-payment guess).
+      let ruled = false;
+      if (typeof applyRules === 'function') {
+        ruled = !!applyRules(tx);
+        if (ruled && tx.ruleApplied) {
+          // Per-match import behaviors, applied at import time only.
           const fr = (S.rules || []).find(r => r.id === tx.ruleApplied);
           if (fr && fr.flagReview) tx.needsReview = true;
           if (fr && fr.markRecurring) tx.recurring = true;
+          if (fr && fr.postToDebt && typeof postDebtPaymentFromTx === 'function') postDebtPaymentFromTx(tx, fr.postToDebt);
+        }
+      }
+      if (!ruled) {
+        // Same credit-card payment / transfer heuristics as the CSV import path,
+        // so both halves of a card payment pair up as transfers automatically.
+        const appAcct = S.accounts.find(x => x.id === tx.accountId);
+        if (typeof looksLikeCardPayment === 'function' &&
+            (looksLikeCardPayment(tx.description) ||
+             (appAcct && appAcct.type === 'credit' && tx.kind === 'income' && looksLikeTransfer(tx.description)))) {
+          tx.transfer = true; tx.category = 'Transfers';
+          tx.subcategory = transferSubLike(/credit\s*card/i, 'Credit card payment');
+        } else if (typeof looksLikeTransfer === 'function' && looksLikeTransfer(tx.description)) {
+          tx.transfer = true; tx.category = 'Transfers';
+          tx.subcategory = transferSubLike(/account/i, 'Account transfer');
         }
       }
       S.transactions.push(tx); byPlaidId.set(t.transaction_id, tx); res.imported++;

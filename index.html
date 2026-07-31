@@ -1633,19 +1633,22 @@ function runImport(){
       importSource: institution||'CSV', importDate, manualCat:false,
       bankBalance: (p.bankBalance!=null ? p.bankBalance : null)
     };
-    // credit-card payment / transfer heuristics
-    if(looksLikeCardPayment(p.description) || (acct && acct.type==='credit' && p.kind==='income' && looksLikeTransfer(p.description))){
-      t.transfer=true; t.category='Transfers'; t.subcategory=transferSubLike(/credit\s*card/i,'Credit card payment');
-    } else if(looksLikeTransfer(p.description)){
-      t.transfer=true; t.category='Transfers'; t.subcategory=transferSubLike(/account/i,'Account transfer');
-    } else {
-      applyRules(t);  // a matching rule sets subcategory + derives category
-      // Rules can elect per-match behaviors, applied at import time only so
-      // deliberate per-transaction changes are never overridden by a re-apply.
-      if(t.ruleApplied){
-        const fr=S.rules.find(r=>r.id===t.ruleApplied);
-        if(fr && fr.flagReview) t.needsReview=true;
-        if(fr && fr.markRecurring) t.recurring=true;
+    // User rules run FIRST — explicit teaching beats the generic transfer
+    // heuristics. Rule behaviors are applied at import time only so deliberate
+    // per-transaction changes are never overridden by a re-apply.
+    const ruled=applyRules(t);
+    if(ruled && t.ruleApplied){
+      const fr=S.rules.find(r=>r.id===t.ruleApplied);
+      if(fr && fr.flagReview) t.needsReview=true;
+      if(fr && fr.markRecurring) t.recurring=true;
+      if(fr && fr.postToDebt) postDebtPaymentFromTx(t, fr.postToDebt);
+    }
+    if(!ruled){
+      // credit-card payment / transfer heuristics
+      if(looksLikeCardPayment(p.description) || (acct && acct.type==='credit' && p.kind==='income' && looksLikeTransfer(p.description))){
+        t.transfer=true; t.category='Transfers'; t.subcategory=transferSubLike(/credit\s*card/i,'Credit card payment');
+      } else if(looksLikeTransfer(p.description)){
+        t.transfer=true; t.category='Transfers'; t.subcategory=transferSubLike(/account/i,'Account transfer');
       }
       if(!t.subcategory && p.csvCat){ const sub=mapCsvSub(p.csvCat); if(sub){ t.subcategory=sub; t.category=categoryForSub(sub); } }
       if(p.kind==='income' && !t.category) t.category='Income';
@@ -3270,6 +3273,27 @@ function interestForPayment(d, date){
   }
   return monthlyInterest(bal, eff);
 }
+/* Log a transaction as a payment on a debt (used by "post as payment" rules
+   and Plaid auto-post). Splits via the debt's accrual model, marks the
+   transaction a transfer, and is idempotent per transaction. Manual debts
+   also get their balance decremented; linked debts sync balance from Plaid. */
+function postDebtPaymentFromTx(tx, debtId){
+  const d=S.debts.find(x=>x.id===debtId); if(!d) return false;
+  const amt=Math.abs(Number(tx.amount)||0); if(!amt||!tx.date) return false;
+  d.payments=d.payments||[];
+  const pid=tx.plaidId||tx.id;
+  if(pid && d.payments.some(p=>p.plaidTxId===pid)) return false;
+  const interest=Math.min(interestForPayment(d,tx.date),amt);
+  const principal=Math.max(0,amt-interest);
+  if(!d.plaidAccountId) d.currentBalance=Math.max(0,(Number(d.currentBalance)||0)-principal);
+  d.payments.push({month:monthKey(tx.date),date:tx.date,minPayment:d.minPayment,actualPaid:amt,extraPrincipal:0,fees:0,newCharges:0,interest,principal,auto:true,plaidTxId:pid});
+  tx.transfer=true; tx.category='Transfers';
+  if(!tx.subcategory||!isTransferSub(tx.subcategory)){
+    tx.subcategory=transferSubLike(d.type==='credit'?/credit\s*card/i:/loan|student/i, d.type==='credit'?'Credit card payment':'Loan payment');
+  }
+  if(typeof applySign==='function') applySign(tx);
+  return true;
+}
 /* Effective rate honours a promotional rate while it's still active */
 function effectiveApr(d, date){
   const when = date ? new Date(date) : new Date();
@@ -4044,7 +4068,7 @@ function rulesCardBody(){
         <td><label class="switch"><input type="checkbox" ${r.enabled!==false?'checked':''} onchange="toggleRule('${r.id}')"></label></td>
         <td>${all.indexOf(r)+1}</td>
         <td>${esc(r.field)} ${esc(r.matchType)} “<b>${esc(r.value)}</b>”${r.amountMin||r.amountMax?` · ${money(r.amountMin||0)}–${r.amountMax?money(r.amountMax):'∞'}`:''}${r.account?` · ${esc(accountName(r.account))}`:''}</td>
-        <td>${r.subcategory?`<span class="cat-chip">${esc(r.subcategory)}</span> <span class="mini">→ ${esc(r.category||categoryForSub(r.subcategory))}</span>`:`<span class="cat-chip">${esc(r.category||'—')}</span>`}${r.transfer?' <span class="pill">transfer</span>':''}${r.flagReview?' <span class="pill amber">review</span>':''}${r.markRecurring?' <span class="pill">\u21BB recurring</span>':''}</td>
+        <td>${r.subcategory?`<span class="cat-chip">${esc(r.subcategory)}</span> <span class="mini">→ ${esc(r.category||categoryForSub(r.subcategory))}</span>`:`<span class="cat-chip">${esc(r.category||'—')}</span>`}${r.transfer?' <span class="pill">transfer</span>':''}${r.flagReview?' <span class="pill amber">review</span>':''}${r.markRecurring?' <span class="pill">\u21BB recurring</span>':''}${r.postToDebt?` <span class="pill green" title="Logs matches into this debt's payment history">\uD83D\uDCB3 ${esc((S.debts.find(d=>d.id===r.postToDebt)||{}).name||'debt payment')}</span>`:''}</td>
         <td class="mini">${r.txType||'any'}</td>
         <td class="r nowrap">
           <button class="icon-btn" title="Up" onclick="moveRule('${r.id}',-1)">▲</button>
@@ -4315,6 +4339,9 @@ function addRule(id){
       <label class="ckline" style="display:flex;align-items:flex-start;gap:8px;margin:0"><input type="checkbox" id="rTransfer" ${r.transfer?'checked':''} style="margin-top:2px;width:auto;flex:0 0 auto"> <span style="flex:1">Treat matches as <b>transfers</b> (not income/spending)</span></label>
       <label class="ckline" style="display:flex;align-items:flex-start;gap:8px;margin:0"><input type="checkbox" id="rFlag" ${r.flagReview?'checked':''} style="margin-top:2px;width:auto;flex:0 0 auto"> <span style="flex:1">Flag matches for <b>review</b> on import — adds a dismissible badge so you can double-check them</span></label>
       <label class="ckline" style="display:flex;align-items:flex-start;gap:8px;margin:0"><input type="checkbox" id="rRecur" ${r.markRecurring?'checked':''} style="margin-top:2px;width:auto;flex:0 0 auto"> <span style="flex:1">Mark matches as <b>recurring</b> — for bills that charge on a schedule (subscriptions, utilities, rent), not merchants you just visit often</span></label>
+      ${S.debts.length?`<div style="display:flex;flex-direction:column;gap:4px"><label class="fld" style="margin:0">Also log matches as a <b>debt payment</b> (optional)</label>
+        <select id="rPostDebt"><option value="">— no —</option>${S.debts.map(d=>`<option value="${d.id}" ${r.postToDebt===d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select>
+        <span class="mini">Each match is added to that debt's payment history with an interest/principal split, and filed as a transfer. Applied at import time only.</span></div>`:''}
     </div>
   </div></div>
   <div class="mft">${id?`<button class="btn danger" style="margin-right:auto" onclick="delRule('${id}')">Delete</button>`:''}<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveRule('${id||''}')">Save rule</button></div>`,true);
@@ -4323,7 +4350,8 @@ function saveRule(id){
   const g=x=>document.getElementById(x).value;
   const sub=g('rSub'); if(!sub){ toast('Choose a subcategory','warn'); return; }
   const data={field:g('rField'),matchType:g('rMatch'),value:g('rValue'),subcategory:sub,category:categoryForSub(sub),
-    account:g('rAcct'),txType:g('rType'),amountMin:g('rMin'),amountMax:g('rMax'),transfer:document.getElementById('rTransfer').checked,flagReview:document.getElementById('rFlag').checked,markRecurring:document.getElementById('rRecur').checked};
+    account:g('rAcct'),txType:g('rType'),amountMin:g('rMin'),amountMax:g('rMax'),transfer:document.getElementById('rTransfer').checked,flagReview:document.getElementById('rFlag').checked,markRecurring:document.getElementById('rRecur').checked,
+    postToDebt:(document.getElementById('rPostDebt')||{}).value||''};
   if(id){ Object.assign(S.rules.find(x=>x.id===id),data); }
   else { S.rules.push({id:uid('rule'),enabled:true,order:S.rules.length,...data}); }
   save(); closeModal(); toast('Rule saved'); render();
