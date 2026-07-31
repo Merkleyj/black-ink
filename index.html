@@ -505,6 +505,7 @@
   table.tbl th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;border-bottom:1px solid var(--line)}
   table.tbl td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
   table.tbl.compact td,table.tbl.compact th{padding:5px 9px}
+  table.tbl td.r,table.tbl th.r{text-align:right}
   table.tbl tr:last-child td{border-bottom:none}
   .hd{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
   .hd h3{margin:0}
@@ -3921,7 +3922,7 @@ function viewReview(){
   const dpaid=rmonths.reduce((s,m)=>s+debtPaidInMonth(m),0), dchg=rmonths.reduce((s,m)=>s+debtBalanceChangeInMonth(m),0), icontrib=rmonths.reduce((s,m)=>s+investContribInMonth(m),0);
   // subscriptions within the active range
   const subMap=new Map();
-  txs.filter(t=>t.category==='Subscriptions' && txFlow(t).spending>0).forEach(t=>{ const k=merchantLabel(t); const e=subMap.get(k)||{name:k,total:0,count:0,sub:t.subcategory||''}; e.total+=txFlow(t).spending; e.count++; subMap.set(k,e); });
+  txs.filter(t=>t.category==='Subscriptions' && txFlow(t).spending>0).forEach(t=>{ const k=merchantLabel(t); const e=subMap.get(k)||{name:k,total:0,count:0,sub:t.subcategory||'',lastDate:''}; e.total+=txFlow(t).spending; e.count++; if(t.date>e.lastDate) e.lastDate=t.date; subMap.set(k,e); });
   const subs=[...subMap.values()].sort((x,y)=>y.total-x.total);
   const subTotal=subs.reduce((s,x)=>s+x.total,0);
 
@@ -3983,8 +3984,8 @@ function viewReview(){
   <div class="grid-2">
     <div class="card">
       <h3>Recurring this month</h3>
-      ${recurringBills.length? `<table class="tbl compact"><thead><tr><th>Merchant</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>
-        ${recurringBills.map(t=>`<tr><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'—')}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
+      ${recurringBills.length? `<table class="tbl compact"><thead><tr><th>Merchant</th><th>Category</th><th>Date</th><th class="r">Amount</th></tr></thead><tbody>
+        ${recurringBills.map(t=>`<tr><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'—')}</td><td class="nowrap">${fmtDate(t.date)}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No transactions marked recurring. You can mark them on the Transactions tab.</p>`}
     </div>
     <div class="card">
@@ -3998,8 +3999,8 @@ function viewReview(){
   <div class="card">
     <h3>Subscriptions <span class="pill ${subs.length?'blue':'green'}">${subs.length}</span></h3>
     <p class="mini">Charges categorized under “Subscriptions” in this period${subTotal>0?`, totaling <b>${money(subTotal)}</b>`:''}.</p>
-    ${subs.length? `<table class="tbl compact"><thead><tr><th>Service</th><th>Type</th><th class="r">Charges</th><th class="r">Total</th></tr></thead><tbody>
-      ${subs.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.sub||'—')}</td><td class="r">${s.count}</td><td class="r">${money(s.total)}</td></tr>`).join('')}
+    ${subs.length? `<table class="tbl compact"><thead><tr><th>Service</th><th>Type</th><th>Last charge</th><th class="r">Charges</th><th class="r">Total</th></tr></thead><tbody>
+      ${subs.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.sub||'—')}</td><td class="nowrap">${s.lastDate?fmtDate(s.lastDate):'—'}</td><td class="r">${s.count}</td><td class="r">${money(s.total)}</td></tr>`).join('')}
     </tbody></table>` : `<p class="muted">No subscriptions found. Categorize recurring services under the Subscriptions category to see them here.</p>`}
   </div>
 
