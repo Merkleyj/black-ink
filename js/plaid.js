@@ -32,12 +32,13 @@
     const c = client(); if (!c) throw new Error('Not signed in');
     const { data, error } = await c.functions.invoke('plaid', { body: { action, ...(body || {}) } });
     if (error) {
-      // surface the function's JSON error message when present
-      let msg = error.message || 'Request failed';
-      try { const ctx = await error.context?.json?.(); if (ctx?.error) msg = ctx.error; } catch (e) {}
-      throw new Error(msg);
+      // surface the function's JSON error message (and machine code) when present
+      let msg = error.message || 'Request failed', code = '';
+      try { const ctx = await error.context?.json?.(); if (ctx?.error) msg = ctx.error; if (ctx?.code) code = ctx.code; } catch (e) {}
+      const err = new Error(msg); if (code) err.code = code;
+      throw err;
     }
-    if (data && data.error) throw new Error(data.error);
+    if (data && data.error) { const err = new Error(data.error); if (data.code) err.code = data.code; throw err; }
     return data;
   }
 
@@ -47,7 +48,11 @@
     toast('Preparing secure connection…');
     let linkToken;
     try { linkToken = (await invoke('link_token')).link_token; }
-    catch (e) { toast('Connect failed: ' + e.message, 'err'); return; }
+    catch (e) {
+      // Not on Plus (or at the institution cap): plain-language message, not an error.
+      if (e.code === 'UPGRADE_REQUIRED' || e.code === 'INSTITUTION_LIMIT') { toast(e.message, 'warn'); return; }
+      toast('Connect failed: ' + e.message, 'err'); return;
+    }
     try { await loadScript(); } catch (e) { toast(e.message, 'err'); return; }
     const handler = window.Plaid.create({
       token: linkToken,

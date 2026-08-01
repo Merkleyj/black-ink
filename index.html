@@ -944,6 +944,7 @@
 <script src="js/sync.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/plaid.js"></script>
+<script src="js/billing.js"></script>
 
 <script>
 /* =====================================================================
@@ -3080,6 +3081,26 @@ function afterBudget(){
    ACCOUNTS + NET WORTH
    ===================================================================== */
 const ACCT_TYPES=[['checking','Checking'],['savings','Savings'],['credit','Credit card'],['cash','Cash'],['loan','Loan'],['investment','Investment'],['other','Other']];
+/* ---- Black Ink Plus (bank sync) — pricing UI. The server enforces the
+   entitlement; these blocks only decide what to show. ---- */
+function plusButtons(){
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn primary" onclick="BlackInkBilling.checkout('year')">$59/year · save 30%</button>
+    <button class="btn" onclick="BlackInkBilling.checkout('month')">$6.99/month</button>
+  </div>`;
+}
+function plusUpsellCard(){
+  return `<div class="card feature" style="margin-bottom:16px"><div class="bd" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-weight:650">Link your accounts <span class="pill blue">Plus</span></div>
+        <div class="mini">Connect banks, credit cards, brokerages and loan servicers — transactions, balances, loans and investment holdings import automatically and stay in sync. Up to 4 institutions. Powered by Plaid; your logins are never seen by Black Ink.</div>
+      </div>
+      ${plusButtons()}
+    </div>
+    <div class="mini" style="margin-top:8px">Everything else in Black Ink is free. Cancel anytime — connections disconnect when the plan ends, and everything already imported stays yours. Payments are handled by Stripe; card details never touch Black Ink.</div>
+  </div></div>`;
+}
 function viewAccounts(){
   const nw=netWorth();
   const assets=S.accounts.filter(a=>['checking','savings','cash','investment','other'].includes(a.type)&&a.active!==false);
@@ -3143,7 +3164,7 @@ function viewAccounts(){
     <label class="checkrow" style="margin-left:auto"><input type="checkbox" ${filter.includeInactive?'checked':''} onchange="filter.includeInactive=this.checked;render()"> Show inactive</label>
   </div>
 
-  ${window.BlackInkPlaid ? `<div class="card feature" style="margin-bottom:16px"><div class="bd" style="padding:14px 16px">
+  ${window.BlackInkPlaid ? ((window.BlackInkBilling && BlackInkBilling.available() && !BlackInkBilling.entitled()) ? plusUpsellCard() : `<div class="card feature" style="margin-bottom:16px"><div class="bd" style="padding:14px 16px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <div style="font-weight:650">Link your accounts <span class="pill">beta</span></div>
@@ -3160,7 +3181,7 @@ function viewAccounts(){
       return `<div class="mini" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">Connected: ${items.map(it=>
         `<span class="pill">${esc(it.institution||'Institution')} <a style="cursor:pointer" title="Disconnect this institution" onclick="confirmBox('Disconnect institution','Stops syncing this institution and de-authorizes it with Plaid. Imported data stays and becomes manually managed.',()=>{closeModal();BlackInkPlaid.unlink('${esc(it.item_id)}')},'Disconnect',true)">✕</a></span>`).join(' ')}</div>`; })()}
     ${(()=>{ const linked=S.accounts.filter(a=>a.plaidAccountId); return linked.length ? `<div class="mini" style="margin-top:6px">Linked accounts: ${linked.map(a=>esc(a.name)).join(', ')}${S.plaidLastSync?` · last sync ${new Date(S.plaidLastSync).toLocaleString()}`:''}</div>` : ''; })()}
-  </div></div>` : ''}
+  </div></div>`) : ''}
 
   <div class="two-col">
     <div><h3 style="margin-bottom:10px;font-size:14px">Assets</h3>${assets.length?assets.map(acctCard).join(''):'<div class="card"><div class="bd">'+emptyState('No asset accounts','Add checking, savings, or cash accounts.','')+'</div></div>'}
@@ -4815,6 +4836,8 @@ function viewExport(){
     <div class="btn-row" style="margin-top:12px"><button class="btn primary" onclick="saveSettings()">Save settings</button></div>
   </div>
 
+  ${billingCardHTML()}
+
   <div class="card ${S.usingSample?'warnbox':''}">
     <h3>Data management</h3>
     ${S.usingSample? `<p class="mini"><b>Sample data is loaded.</b> Remove it before entering your own figures so the two don’t mix.</p>
@@ -5188,6 +5211,24 @@ function downloadFile(content,name,type){
 }
 
 /* ---- Settings ---- */
+/* Billing card (Settings). Hidden entirely in local-only mode. */
+function billingCardHTML(){
+  if(!window.BlackInkBilling || !BlackInkBilling.available()) return '';
+  const b=BlackInkBilling.info(), st=b&&b.status, ent=BlackInkBilling.entitled();
+  let line;
+  if(st==='comp') line='Complimentary access — bank sync included.';
+  else if(ent){
+    const when=b.current_period_end?fmtDate(b.current_period_end):'';
+    line=`<b>Black Ink Plus</b> (${b.price_interval==='year'?'annual':'monthly'}) — ${b.cancel_at_period_end?`ends ${when}`:`renews ${when}`}${st==='past_due'?' · <b style="color:var(--amber)">payment issue — update your card in billing</b>':''}`;
+  }
+  else line='Free plan — manual accounts, CSV import, budgets, debt payoff, investments and sync across devices. Add automatic bank sync with <b>Black Ink Plus</b> (up to 4 linked institutions).';
+  return `<div class="card">
+    <h3>Billing</h3>
+    <p class="mini" style="margin:6px 0 12px">${line}</p>
+    ${ent ? (st==='comp'?'':`<button class="btn" onclick="BlackInkBilling.portal()">Manage billing</button>`) : plusButtons()}
+    ${!ent?`<p class="mini" style="margin-top:10px">Payments are handled by Stripe — card details never touch Black Ink. Cancel anytime; bank connections disconnect when the plan ends and imported data stays yours.</p>`:''}
+  </div>`;
+}
 function saveSettings(){
   const g=x=>document.getElementById(x).value;
   S.settings.currency=g('setCur'); S.settings.locale=g('setLoc'); S.settings.budgetMethod=g('setBudM');
@@ -5289,6 +5330,14 @@ function wizStep(){
       <p>Imported so far: <b>${la}</b> account${la!==1?'s':''}, <b>${lt}</b> transaction${lt!==1?'s':''}${ld?`, <b>${ld}</b> loan${ld!==1?'s':''} into the Debt tab`:''}${lv?`, <b>${lv}</b> investment account${lv!==1?'s':''}`:''}.</p>
       <p>Balances, transactions, loans and holdings now sync automatically whenever you open the app. The remaining steps are shorter — we've skipped what your bank already covered.</p>
       <div class="btn-row"><button class="btn" onclick="wizConnectBank()">+ Connect another institution</button></div>`;
+      }
+      if(avail && window.BlackInkBilling && !BlackInkBilling.entitled()){
+        return `
+      <h1>Connect your accounts <span class="mini">(Black Ink Plus)</span></h1>
+      <p>Link your financial institutions — banks, credit card issuers, brokerages, loan servicers — and Black Ink fills itself in: accounts, balances and transaction history import automatically and stay in sync. Bank sync is part of <b>Black Ink Plus</b> (up to 4 institutions).</p>
+      <div class="btn-row" style="margin:16px 0">${plusButtons()}</div>
+      <p class="mini">Powered by Plaid — your login goes to Plaid, never to Black Ink. Payments are handled by Stripe. Cancel anytime; imported data stays yours.</p>
+      <p class="mini">Or just press Continue — manual accounts, CSV import, budgets, debt payoff and cross-device sync are all free, and you can upgrade any time from the Accounts tab.</p>`;
       }
       if(avail){
         return `
@@ -5707,6 +5756,20 @@ async function boot(){
   render();
   maybeTVFromHash();   // deep-link to #tv (also fires after the sign-in gate, since boot runs post-auth)
   maybeStartTour();    // first-run walkthrough (once, skippable)
+  // Black Ink Plus status — server enforces entitlements; this shapes the UI.
+  // Also handles the return leg from Stripe Checkout (?billing=success).
+  try{
+    const q=new URLSearchParams(location.search);
+    const bret=q.get('billing');
+    if(bret){ q.delete('billing'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }
+    if(window.BlackInkBilling && BlackInkBilling.available()){
+      if(bret==='success'){ BlackInkBilling.afterCheckoutReturn(); }
+      else {
+        if(bret==='cancelled') toast('Checkout cancelled — no charge was made','warn');
+        BlackInkBilling.load().then(()=>{ if(activeTab==='accounts'||activeTab==='export'||!S.setupDone) render(); });
+      }
+    }
+  }catch(e){}
   // Background bank sync (Plaid) — silent, throttled to once per 6h.
   setTimeout(()=>{ try{ if(window.BlackInkPlaid) BlackInkPlaid.maybeAutoSync(); }catch(e){} }, 1500);
 }

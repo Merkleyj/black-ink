@@ -56,6 +56,23 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE); // bypasses RLS to store tokens
     const { action, ...body } = await req.json();
 
+    // Bank sync is part of Black Ink Plus. Entitlement lives in the
+    // subscriptions table (maintained by the Stripe webhook; 'comp' rows are
+    // manual grants). Enforced here — the UI gate is only cosmetic.
+    // `unlink` and `status` are deliberately NOT gated: disconnecting must
+    // always work, and status is harmless.
+    const PLUS_ACTIONS = ["link_token", "exchange", "sync", "set_webhooks"];
+    if (PLUS_ACTIONS.includes(action)) {
+      const { data: subRow } = await admin.from("subscriptions").select("status").eq("user_id", user.id).maybeSingle();
+      const ok = !!subRow && ["comp", "active", "trialing", "past_due"].includes(subRow.status);
+      if (!ok) {
+        return json({
+          error: "Bank sync is part of Black Ink Plus — upgrade from the Accounts tab.",
+          code: "UPGRADE_REQUIRED",
+        }, 402);
+      }
+    }
+
     if (action === "link_token") {
       const base = {
         user: { client_user_id: user.id },
@@ -74,6 +91,16 @@ Deno.serve(async (req) => {
         if (!it) return json({ error: "Unknown bank connection" }, 404);
         const d = await plaid("/link/token/create", { ...base, access_token: it.access_token });
         return json({ link_token: d.link_token });
+      }
+      // Fair-use cap: Plus includes up to 4 linked institutions (each one has
+      // a recurring per-account cost on our side).
+      const { count } = await admin.from("plaid_items")
+        .select("*", { count: "exact", head: true }).eq("user_id", user.id);
+      if ((count ?? 0) >= 4) {
+        return json({
+          error: "Your plan includes up to 4 linked institutions. Disconnect one from the Accounts tab to add another.",
+          code: "INSTITUTION_LIMIT",
+        }, 400);
       }
       // optional_products: institutions that lack liabilities/investments stay linkable.
       // days_requested: pull up to 2 years of history (Plaid default is ~90 days).
