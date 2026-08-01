@@ -618,6 +618,23 @@
     .kpi-row{grid-template-columns:1fr 1fr;gap:10px}
     .mini-grid{grid-template-columns:1fr 1fr}
     .grid-2{grid-template-columns:1fr;gap:14px}   /* Review: stack paired blocks vertically */
+
+    /* Review: dense tables stay tables (not one card per row) — tighter cells,
+       and dates/figures never wrap, so rows stay a single line. */
+    table.tbl.compact th,table.tbl.compact td{padding:5px 4px;font-size:12px}
+    table.tbl.compact td.r,table.tbl.compact th.r,table.tbl.compact td.nowrap{white-space:nowrap}
+    /* Long unbroken merchant strings (MICROSOFT*MICROS) must wrap rather than
+       push the table past the card edge on the narrowest phones. */
+    table.tbl.compact td:not(.nowrap):not(.r){overflow-wrap:anywhere}
+    /* Too many columns for a phone: drop the secondary one so merchant, date
+       and amount all fit on a single line. Both are visible on a wider screen —
+       Subscriptions loses "Type", Recurring loses "Category". */
+    .subs-tbl th:nth-child(2),.subs-tbl td:nth-child(2),
+    .rec-tbl th:nth-child(2),.rec-tbl td:nth-child(2){display:none}
+    /* "Charges" header is far wider than its one-digit values — shorten it.
+       Needs to out-specify the table.tbl.compact th sizing rule above. */
+    table.tbl.compact th.count-col{font-size:0}
+    table.tbl.compact th.count-col::after{content:"#";font-size:11px;letter-spacing:0}
     .kpi{padding:13px 14px}
     .kpi .val{font-size:20px}
 
@@ -1135,6 +1152,17 @@ function fmtDate(d){
   const dt = (d instanceof Date)? d : new Date(d+'T00:00:00');
   if(isNaN(dt)) return esc(d);
   return dt.toLocaleDateString(S?.settings?.locale||'en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+/* Compact date for dense tables — drops the year for the current year
+   ("Jul 2"), keeps it otherwise ("Jul 2, 2025"). Saves a wrapped line per row
+   on narrow screens where the period is already named above the table. */
+function fmtDateShort(d){
+  if(!d) return '—';
+  const dt = (d instanceof Date)? d : new Date(d+'T00:00:00');
+  if(isNaN(dt)) return esc(d);
+  const opts={month:'short',day:'numeric'};
+  if(dt.getFullYear()!==new Date().getFullYear()) opts.year='numeric';
+  return dt.toLocaleDateString(S?.settings?.locale||'en-US',opts);
 }
 function toISODate(d){ const dt=(d instanceof Date)?d:new Date(d); const z=new Date(dt.getTime()-dt.getTimezoneOffset()*60000); return z.toISOString().slice(0,10); }
 function monthKey(d){ const dt=(d instanceof Date)?d:new Date(d+'T00:00:00'); return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'); }
@@ -3969,14 +3997,14 @@ function viewReview(){
     <div class="card">
       <h3>Largest expenses</h3>
       ${expenses.length? `<table class="tbl compact"><thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>
-        ${expenses.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'Uncategorized')}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
+        ${expenses.map(t=>`<tr><td class="nowrap">${fmtDateShort(t.date)}</td><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'Uncategorized')}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No spending recorded.</p>`}
     </div>
     <div class="card">
       <h3>Unusual transactions</h3>
       <p class="mini">Larger than typical for their category, or one-off amounts over ${money(400)}.</p>
       ${unusual.length? `<table class="tbl compact"><thead><tr><th>Date</th><th>Merchant</th><th class="r">Amount</th></tr></thead><tbody>
-        ${unusual.map(t=>`<tr><td>${fmtDate(t.date)}</td><td>${esc(merchantLabel(t))}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
+        ${unusual.map(t=>`<tr><td class="nowrap">${fmtDateShort(t.date)}</td><td>${esc(merchantLabel(t))}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">Nothing flagged as unusual.</p>`}
     </div>
   </div>
@@ -3984,8 +4012,8 @@ function viewReview(){
   <div class="grid-2">
     <div class="card">
       <h3>Recurring this month</h3>
-      ${recurringBills.length? `<table class="tbl compact"><thead><tr><th>Merchant</th><th>Category</th><th>Date</th><th class="r">Amount</th></tr></thead><tbody>
-        ${recurringBills.map(t=>`<tr><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'—')}</td><td class="nowrap">${fmtDate(t.date)}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
+      ${recurringBills.length? `<table class="tbl compact rec-tbl"><thead><tr><th>Merchant</th><th>Category</th><th>Date</th><th class="r">Amount</th></tr></thead><tbody>
+        ${recurringBills.map(t=>`<tr><td>${esc(merchantLabel(t))}</td><td>${esc(t.category||'—')}</td><td class="nowrap">${fmtDateShort(t.date)}</td><td class="r">${money(txFlow(t).spending)}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">No transactions marked recurring. You can mark them on the Transactions tab.</p>`}
     </div>
     <div class="card">
@@ -3999,8 +4027,8 @@ function viewReview(){
   <div class="card">
     <h3>Subscriptions <span class="pill ${subs.length?'blue':'green'}">${subs.length}</span></h3>
     <p class="mini">Charges categorized under “Subscriptions” in this period${subTotal>0?`, totaling <b>${money(subTotal)}</b>`:''}.</p>
-    ${subs.length? `<table class="tbl compact"><thead><tr><th>Service</th><th>Type</th><th>Last charge</th><th class="r">Charges</th><th class="r">Total</th></tr></thead><tbody>
-      ${subs.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.sub||'—')}</td><td class="nowrap">${s.lastDate?fmtDate(s.lastDate):'—'}</td><td class="r">${s.count}</td><td class="r">${money(s.total)}</td></tr>`).join('')}
+    ${subs.length? `<table class="tbl compact subs-tbl"><thead><tr><th>Service</th><th>Type</th><th>Last charge</th><th class="r count-col">Charges</th><th class="r">Total</th></tr></thead><tbody>
+      ${subs.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.sub||'—')}</td><td class="nowrap">${s.lastDate?fmtDateShort(s.lastDate):'—'}</td><td class="r">${s.count}</td><td class="r">${money(s.total)}</td></tr>`).join('')}
     </tbody></table>` : `<p class="muted">No subscriptions found. Categorize recurring services under the Subscriptions category to see them here.</p>`}
   </div>
 
