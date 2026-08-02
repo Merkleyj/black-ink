@@ -64,6 +64,9 @@ async function stripeGet(path: string) {
 // deno-lint-ignore no-explicit-any
 function subFields(s: any) {
   const item = s.items?.data?.[0];
+  // Newer Stripe API versions moved the period fields from the subscription
+  // onto its items — read whichever is present.
+  const periodEnd = s.current_period_end ?? item?.current_period_end;
   return {
     stripe_subscription_id: s.id,
     stripe_customer_id: typeof s.customer === "string" ? s.customer : s.customer?.id,
@@ -71,7 +74,7 @@ function subFields(s: any) {
     price_id: item?.price?.id ?? null,
     price_interval: item?.price?.recurring?.interval ?? null,
     cancel_at_period_end: !!s.cancel_at_period_end,
-    current_period_end: s.current_period_end ? new Date(s.current_period_end * 1000).toISOString() : null,
+    current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     updated_at: new Date().toISOString(),
   };
 }
