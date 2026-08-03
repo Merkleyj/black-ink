@@ -800,10 +800,13 @@
   }
 </style>
 <script>
-  /* apply saved appearance prefs before paint to avoid flash */
+  /* apply saved appearance prefs before paint to avoid flash.
+     No saved pref = dark + teal, matching the landing page. */
   try{
-    var _t=localStorage.getItem('fd_theme'); if(_t){ document.documentElement.dataset.theme=_t; document.documentElement.style.colorScheme=(_t==='dark'?'dark':'light'); }
-    var _a=localStorage.getItem('fd_accent'); if(_a) document.documentElement.dataset.accent=_a;
+    var _t=localStorage.getItem('fd_theme')||'dark';
+    if(_t!=='light'){ document.documentElement.dataset.theme=_t; document.documentElement.style.colorScheme='dark'; }
+    var _a=localStorage.getItem('fd_accent')||'teal';
+    document.documentElement.dataset.accent=_a;
   }catch(e){}
 </script>
 
