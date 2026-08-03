@@ -250,6 +250,24 @@
     // Leave the local cache in place so the user keeps working offline/local.
   }
 
+  /* After the delete-account Edge Function succeeds the server-side user is
+     gone, so the cached session is dead weight. Scrub EVERYTHING this app
+     ever stored — state, sync metadata, markers, and the Supabase auth
+     token — then land on the marketing page. */
+  function postAccountDeletion() {
+    try {
+      wipeLocalState();
+      localStorage.removeItem(LAST_USER_KEY);
+      localStorage.removeItem(LOCAL_ONLY_KEY);
+      localStorage.removeItem('bi_plus_intent');
+      localStorage.removeItem('bi_visited');
+      Object.keys(localStorage)
+        .filter((k) => k.indexOf('sb-') === 0)
+        .forEach((k) => localStorage.removeItem(k));
+    } catch (e) {}
+    location.replace('welcome.html');
+  }
+
   /* ---------------- session wiring ---------------- */
   async function onSignedIn(session) {
     currentUser = session.user;
@@ -335,5 +353,6 @@
     _google: google,
     _magic: magic,
     _localOnly: localOnly,
+    postAccountDeletion,
   };
 })();

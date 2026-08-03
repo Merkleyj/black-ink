@@ -4870,9 +4870,56 @@ function viewExport(){
     <div class="btn-row" style="margin-top:14px">
       <button class="btn" onclick="rerunWizard()">Re-run setup wizard</button>
       <button class="btn danger" onclick="deleteAllTransactions()">Delete all transactions</button>
-      <button class="btn danger" onclick="resetAll()">Erase everything</button>
+      <button class="btn danger" onclick="resetAll()">Erase all data${window.BlackInkSync&&BlackInkSync.user?' (keep account)':''}</button>
     </div>
+    ${window.BlackInkSync&&BlackInkSync.user?`
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+      <p class="mini">Deleting your account permanently removes your synced data, disconnects all linked banks, and cancels any Black Ink Plus subscription immediately. This cannot be undone.</p>
+      <button class="btn danger" onclick="openDeleteAccountModal()">Delete account…</button>
+    </div>`:''}
   </div>`;
+}
+
+/* ---- Account deletion (the login itself, not a bank account) ---- */
+function openDeleteAccountModal(){
+  const hasPlus = window.BlackInkBilling && BlackInkBilling.entitled();
+  openModal(`<div class="mhd"><h3>Delete account</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mbd">
+      <p style="margin:0 0 10px">This permanently deletes your Black Ink account and everything in it:</p>
+      <ul class="mini" style="margin:0 0 10px;padding-left:18px">
+        <li>All synced financial data (cloud and this device)</li>
+        <li>All linked bank connections (de-authorized with Plaid)</li>
+        ${hasPlus?'<li>Your Black Ink Plus subscription — cancelled immediately; any remaining paid time is forfeited</li>':''}
+        <li>Your login itself — the email can be reused, but nothing is recoverable</li>
+      </ul>
+      <p class="mini" style="margin:0 0 12px">Consider downloading a backup first — it's the only copy you'll have.
+        <button class="btn sm" onclick="downloadBackup()" style="margin-left:6px">Download backup</button></p>
+      <label class="fld">Type <b>DELETE</b> to confirm</label>
+      <input id="delAcctConfirm" autocomplete="off" spellcheck="false" placeholder="DELETE"
+        oninput="document.getElementById('delAcctGo').disabled=this.value.trim()!=='DELETE'">
+    </div>
+    <div class="mft"><button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn danger" id="delAcctGo" disabled onclick="performAccountDeletion()">Delete my account</button></div>`);
+}
+async function performAccountDeletion(){
+  const btn=document.getElementById('delAcctGo');
+  if(btn){ btn.disabled=true; btn.textContent='Deleting…'; }
+  try{
+    const c=window.BlackInkSync&&BlackInkSync.client;
+    if(!c) throw new Error('Not signed in');
+    const { data, error } = await c.functions.invoke('delete-account',{ body:{ confirm:'DELETE' } });
+    if(error){
+      let msg=error.message||'Request failed';
+      try{ const ctx=await error.context?.json?.(); if(ctx?.error) msg=ctx.error; }catch(e){}
+      throw new Error(msg);
+    }
+    if(data&&data.error) throw new Error(data.error);
+    // Server-side account is gone; scrub this device and exit to the landing page.
+    BlackInkApp.postAccountDeletion();
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='Delete my account'; }
+    toast('Account deletion failed: '+e.message,'err');
+  }
 }
 
 function exSet(k,v){ exportOpts[k]=v; }
