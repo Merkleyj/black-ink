@@ -5,7 +5,7 @@
    is never intercepted, so sign-in and sync always hit the network.
    Bump CACHE_VERSION whenever shell files change to roll the cache.
    ===================================================================== */
-const CACHE_VERSION = 'black-ink-v34';
+const CACHE_VERSION = 'black-ink-v35';
 
 // Paths are relative to the SW's scope, so this works on GitHub Pages
 // sub-paths (username.github.io/black-ink/) as well as at a domain root.
@@ -69,8 +69,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
-        const cache = await caches.open(CACHE_VERSION);
-        cache.put('./index.html', fresh.clone());
+        // Only the app shell may refresh the offline copy — other pages
+        // (welcome/privacy/security) must never overwrite index.html.
+        if (url.pathname === '/' || url.pathname.endsWith('/index.html')) {
+          const cache = await caches.open(CACHE_VERSION);
+          cache.put('./index.html', fresh.clone());
+        }
         return fresh;
       } catch (e) {
         const cache = await caches.open(CACHE_VERSION);

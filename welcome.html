@@ -72,8 +72,9 @@
   .strip span{display:flex;align-items:center;gap:7px}
   .strip b{color:var(--ink-2);font-weight:650}
 
-  /* sections */
-  section{padding:64px 0}
+  /* sections — must out-specify .wrap's horizontal padding rule, which
+     otherwise zeroes the vertical padding on `section.wrap` elements */
+  section.wrap{padding:64px 22px}
   .sec-h{font-size:clamp(26px,3.2vw,36px);letter-spacing:-.02em;font-weight:800;text-align:center}
   .sec-p{color:var(--ink-2);text-align:center;max-width:60ch;margin:12px auto 40px}
 
