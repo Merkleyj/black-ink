@@ -22,6 +22,11 @@
 (function(){
   try{
     var q=new URLSearchParams(location.search);
+    // "Get Plus" clicks from the landing page carry ?plus=…. Stash the intent
+    // here (this script runs even for signed-out visitors, before the auth
+    // gate) so it survives signup + email confirmation; boot() redeems it.
+    var pi=q.get('plus');
+    if(pi){ localStorage.setItem('bi_plus_intent', (pi==='month'?'month':'year')+':'+Date.now()); }
     var installed=false; try{ installed=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true; }catch(e){}
     if(q.has('go') || location.hash || installed){ localStorage.setItem('bi_visited','1'); return; }
     if(localStorage.getItem('bi_visited')) return;
@@ -5230,6 +5235,26 @@ function downloadFile(content,name,type){
 }
 
 /* ---- Settings ---- */
+/* A "Get Plus" click on the landing page stores an intent that survives
+   signup (and the email-confirmation detour). Once the user is signed in and
+   billing status is known, take them straight to Stripe checkout — no hunting
+   for the upgrade button. Fires at most once: the intent is cleared first. */
+function maybeStartPlusCheckout(){
+  try{
+    if(!window.BlackInkBilling || !BlackInkBilling.available()) return;
+    const raw=localStorage.getItem('bi_plus_intent');
+    if(!raw) return;
+    localStorage.removeItem('bi_plus_intent');
+    if(BlackInkBilling.entitled()) return;   // already Plus — nothing to buy
+    const parts=raw.split(':');
+    const ts=Number(parts[1]||0);
+    // Stale intent (e.g. clicked Get Plus, signed up much later) — don't
+    // surprise-redirect to payment; the upsell in Accounts still covers it.
+    if(ts && Date.now()-ts > 24*60*60*1000) return;
+    toast('Taking you to Black Ink Plus checkout…');
+    BlackInkBilling.checkout(parts[0]==='month'?'month':'year');
+  }catch(e){}
+}
 /* Billing card (Settings). Hidden entirely in local-only mode. */
 function billingCardHTML(){
   if(!window.BlackInkBilling || !BlackInkBilling.available()) return '';
@@ -5776,16 +5801,19 @@ async function boot(){
   maybeTVFromHash();   // deep-link to #tv (also fires after the sign-in gate, since boot runs post-auth)
   maybeStartTour();    // first-run walkthrough (once, skippable)
   // Black Ink Plus status — server enforces entitlements; this shapes the UI.
-  // Also handles the return leg from Stripe Checkout (?billing=success).
+  // Also handles the return leg from Stripe Checkout (?billing=success) and a
+  // "Get Plus" click from the landing page (?plus=…), whose intent is stored
+  // so it survives the signup + email-confirmation detour.
   try{
     const q=new URLSearchParams(location.search);
     const bret=q.get('billing');
-    if(bret){ q.delete('billing'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }
+    const plusIntent=q.get('plus');   // already stashed by the head script; just scrub the URL
+    if(bret||plusIntent){ q.delete('billing'); q.delete('plus'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash); }
     if(window.BlackInkBilling && BlackInkBilling.available()){
-      if(bret==='success'){ BlackInkBilling.afterCheckoutReturn(); }
+      if(bret==='success'){ try{ localStorage.removeItem('bi_plus_intent'); }catch(e){} BlackInkBilling.afterCheckoutReturn(); }
       else {
-        if(bret==='cancelled') toast('Checkout cancelled — no charge was made','warn');
-        BlackInkBilling.load().then(()=>{ if(activeTab==='accounts'||activeTab==='export'||!S.setupDone) render(); });
+        if(bret==='cancelled'){ try{ localStorage.removeItem('bi_plus_intent'); }catch(e){} toast('Checkout cancelled — no charge was made','warn'); }
+        BlackInkBilling.load().then(()=>{ maybeStartPlusCheckout(); if(activeTab==='accounts'||activeTab==='export'||!S.setupDone) render(); });
       }
     }
   }catch(e){}
