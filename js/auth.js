@@ -12,6 +12,21 @@
   const CFG = window.BLACKINK_CONFIG || {};
   const CLOUD = !!window.BLACKINK_CLOUD_ENABLED;
   const LOCAL_ONLY_KEY = 'blackink_local_only';
+  const LAST_USER_KEY = 'blackink_last_user';   // which account the device cache belongs to
+
+  /* Wipe this device's cached app state (used when a DIFFERENT account signs
+     in, so one user's data can never leak into — or seed — another's cloud). */
+  function wipeLocalState() {
+    try {
+      const sk = (typeof STORAGE_KEY !== 'undefined') ? STORAGE_KEY : 'pfd_state_v1';
+      localStorage.removeItem(sk);
+      localStorage.removeItem('blackink_sync_meta');
+      localStorage.removeItem('bi_billing');
+      Object.keys(localStorage)
+        .filter((k) => k.indexOf('blackink_backup_') === 0)
+        .forEach((k) => localStorage.removeItem(k));
+    } catch (e) {}
+  }
 
   let sb = null;          // Supabase client
   let booted = false;     // has the app's boot() run yet?
@@ -217,7 +232,15 @@
     } catch (e) { authMsg(e.message || 'Could not send link.', 'err'); }
   }
   function localOnly() {
-    try { localStorage.setItem(LOCAL_ONLY_KEY, '1'); } catch (e) {}
+    // If this device's cache belongs to a signed-in account, local-only mode
+    // must NOT expose it — wipe first so local mode starts fresh.
+    try {
+      if (localStorage.getItem(LAST_USER_KEY)) {
+        wipeLocalState();
+        localStorage.removeItem(LAST_USER_KEY);
+      }
+      localStorage.setItem(LOCAL_ONLY_KEY, '1');
+    } catch (e) {}
     hideAuth();
     renderAccountChip();
     runAppBoot();
@@ -231,6 +254,16 @@
   async function onSignedIn(session) {
     currentUser = session.user;
     try { localStorage.removeItem(LOCAL_ONLY_KEY); } catch (e) {}
+    // Device-ownership check: if the cached data on this device belongs to a
+    // DIFFERENT account, wipe it BEFORE the sync engine runs — otherwise it
+    // would seed the new account's cloud with the previous user's data.
+    // (No marker = anonymous local-only data; adopting that into the first
+    // signed-in account is the intended migration path.)
+    try {
+      const last = localStorage.getItem(LAST_USER_KEY);
+      if (last && last !== currentUser.id) wipeLocalState();
+      localStorage.setItem(LAST_USER_KEY, currentUser.id);
+    } catch (e) {}
     BlackInkSync.setUser(currentUser);
     hideAuth();
     // Clean the OAuth/magic-link tokens out of the URL bar.

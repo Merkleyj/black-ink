@@ -5,7 +5,7 @@
    is never intercepted, so sign-in and sync always hit the network.
    Bump CACHE_VERSION whenever shell files change to roll the cache.
    ===================================================================== */
-const CACHE_VERSION = 'black-ink-v35';
+const CACHE_VERSION = 'black-ink-v36';
 
 // Paths are relative to the SW's scope, so this works on GitHub Pages
 // sub-paths (username.github.io/black-ink/) as well as at a domain root.
