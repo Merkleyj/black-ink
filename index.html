@@ -565,11 +565,13 @@
   .ckline{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
   .ck-row{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
   .uncat-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-  .uncat-row{display:grid;grid-template-columns:auto 1fr 210px auto;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:9px}
-  .ur-flags{display:flex;flex-direction:column;gap:2px;align-items:center}
+  .uncat-row{display:grid;grid-template-columns:auto 1fr 230px;gap:10px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:9px}
+  .ur-side{display:flex;flex-direction:column;gap:6px}
+  .ur-side .ur-sel{width:100%}
+  .ur-flags{display:flex;gap:12px;align-items:center}
   .ur-flags label{display:flex;gap:3px;align-items:center;margin:0;cursor:pointer}
   .ur-flags input{width:auto}
-  .ur-debt{font-size:11px;padding:3px 5px;max-width:120px}
+  .ur-debt{font-size:11px;padding:3px 5px;flex:0 1 auto;min-width:0;max-width:130px}
   .ur-sel-chk{width:17px;height:17px;cursor:pointer}
   .unc-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 4px;padding:8px 10px;background:color-mix(in srgb,var(--blue) 5%,var(--surface));border:1px solid var(--line);border-radius:9px}
   .unc-toolbar .spacer{flex:1}
@@ -713,8 +715,7 @@
     /* ---- Categories tab ---- */
     /* Uncategorized queue: stack keyword row over a full-width subcategory picker */
     .uncat-row{grid-template-columns:auto 1fr}
-    .uncat-row .ur-sel{grid-column:1/-1;width:100%;max-width:none}
-    .ur-flags{grid-column:1/-1;flex-direction:row;gap:14px}
+    .uncat-row .ur-side{grid-column:1/-1}
     .ur-kw{max-width:none}
 
     /* Rules list: table rows become cards */
@@ -4207,13 +4208,14 @@ function viewRules(){
           <span class="mini" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.description||'')}">${esc(t.merchant||t.description||'—')}</span>
           <span class="mini">${fmtDate(t.date)} · ${((t.kind||t.flow)==='income'?'+':'−')+money(Math.abs(t.amount)).replace('−','')} · ${esc(accountName(t.accountId))} · matches <b id="ukn_${t.id}">${ruleMatchCount(kw)}</b></span>
         </div>
-        <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}</select>
-        <span class="ur-flags">
-          <label title="Recurring — mark this merchant's transactions as a scheduled bill"><input type="checkbox" id="ur_${t.id}">↻</label>
-          <label title="Review — flag future imports matching this rule with a review badge"><input type="checkbox" id="uf_${t.id}">⚑</label>
-          ${S.debts.length?`<select id="ud_${t.id}" class="ur-debt" title="Debt payment — also log matches as a payment on this debt (added to its payment history with an interest/principal split, filed as a transfer)"><option value="">💳 —</option>${S.debts.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select>`:''}
-          <span class="mini" style="cursor:help;opacity:.65" title="↻ marks this merchant's transactions as recurring (bills that charge on a schedule — subscriptions, utilities, rent).&#10;⚑ flags future imports matching this rule with a dismissible review badge so you can double-check them.&#10;💳 also logs matches as a payment on the chosen debt — payment history gets an interest/principal split and the transaction is filed as a transfer.">ⓘ</span>
-        </span>
+        <div class="ur-side">
+          <select id="uc_${t.id}" class="ur-sel"><option value="">— subcategory —</option>${subOptgroups(sg)}</select>
+          <span class="ur-flags">
+            ${S.debts.length?`<select id="ud_${t.id}" class="ur-debt" title="Debt payment — also log matches as a payment on this debt (added to its payment history with an interest/principal split, filed as a transfer)"><option value="">💳 —</option>${S.debts.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select>`:''}
+            <label title="Recurring — mark this merchant's transactions as a scheduled bill (subscriptions, utilities, rent — not merchants you just visit often)"><input type="checkbox" id="ur_${t.id}">↻</label>
+            <label title="Review — flag future imports matching this rule with a dismissible review badge so you can double-check them"><input type="checkbox" id="uf_${t.id}">⚑</label>
+          </span>
+        </div>
       </div>`}).join('')}
     </div>
     ${uncats.length>25?`<p class="mini">Showing first 25 of ${uncats.length}.</p>`:''}
