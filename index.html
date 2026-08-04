@@ -3315,7 +3315,10 @@ function afterAccounts(){
     S.accounts.forEach(a=>{ if(['checking','savings','cash'].includes(a.type)&&a.includeInNetWorth!==false){ let b=Number(a.startingBalance)||0; S.transactions.forEach(t=>{ if(t.accountId===a.id&&t.date<=end) b+=signedAmount(t); }); cash+=b; } });
     let debt=0;
     S.accounts.forEach(a=>{ if(a.type==='credit'&&a.active!==false){ let b=Number(a.startingBalance)||0; S.transactions.forEach(t=>{ if(t.accountId===a.id&&t.date<=end) b+=signedAmount(t); }); debt+=Math.max(0,-b); } });
-    debt+=S.debts.reduce((s,d)=>s+(Number(d.currentBalance)||0),0);
+    // cardMirror debts shadow a linked card counted above via its account
+    // balance — including them here would double-count (netWorth() filters
+    // the same way).
+    debt+=S.debts.filter(d=>!d.cardMirror).reduce((s,d)=>s+(Number(d.currentBalance)||0),0);
     return cash+totalInvest()-debt;
   });
   makeChart('nwChart',{type:'line',data:{labels:months.map(monthLabel),datasets:[{label:'Net worth',data,borderColor:cvar('--blue'),backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.3,pointRadius:3}]},
