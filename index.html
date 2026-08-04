@@ -569,6 +569,7 @@
   .ur-flags{display:flex;flex-direction:column;gap:2px;align-items:center}
   .ur-flags label{display:flex;gap:3px;align-items:center;margin:0;cursor:pointer}
   .ur-flags input{width:auto}
+  .ur-debt{font-size:11px;padding:3px 5px;max-width:120px}
   .ur-sel-chk{width:17px;height:17px;cursor:pointer}
   .unc-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 4px;padding:8px 10px;background:color-mix(in srgb,var(--blue) 5%,var(--surface));border:1px solid var(--line);border-radius:9px}
   .unc-toolbar .spacer{flex:1}
@@ -4210,7 +4211,8 @@ function viewRules(){
         <span class="ur-flags">
           <label title="Recurring — mark this merchant's transactions as a scheduled bill"><input type="checkbox" id="ur_${t.id}">↻</label>
           <label title="Review — flag future imports matching this rule with a review badge"><input type="checkbox" id="uf_${t.id}">⚑</label>
-          <span class="mini" style="cursor:help;opacity:.65" title="↻ marks this merchant's transactions as recurring (bills that charge on a schedule — subscriptions, utilities, rent).&#10;⚑ flags future imports matching this rule with a dismissible review badge so you can double-check them.">ⓘ</span>
+          ${S.debts.length?`<select id="ud_${t.id}" class="ur-debt" title="Debt payment — also log matches as a payment on this debt (added to its payment history with an interest/principal split, filed as a transfer)"><option value="">💳 —</option>${S.debts.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select>`:''}
+          <span class="mini" style="cursor:help;opacity:.65" title="↻ marks this merchant's transactions as recurring (bills that charge on a schedule — subscriptions, utilities, rent).&#10;⚑ flags future imports matching this rule with a dismissible review badge so you can double-check them.&#10;💳 also logs matches as a payment on the chosen debt — payment history gets an interest/principal split and the transaction is filed as a transfer.">ⓘ</span>
         </span>
       </div>`}).join('')}
     </div>
@@ -4394,10 +4396,14 @@ function saveCheckedUncats(){
     const kwEl=document.getElementById('uk_'+id); const kw=((kwEl&&kwEl.value)||'').trim().toUpperCase();
     const recur=!!(document.getElementById('ur_'+id)||{}).checked;
     const flag=!!(document.getElementById('uf_'+id)||{}).checked;
+    const debtId=(document.getElementById('ud_'+id)||{}).value||'';
     t.subcategory=sub; t.category=cat; t.manualCat=true; t.transfer=tr; t.needsReview=false; if(recur) t.recurring=true; applySign(t); filed++;
+    // Log THIS transaction as a debt payment right away; future imports are
+    // handled by the rule's postToDebt (idempotent via transaction id).
+    if(debtId) postDebtPaymentFromTx(t, debtId);
     if(kw){
       const exists=S.rules.some(r=>(r.value||'').toUpperCase()===kw && r.subcategory===sub);
-      if(!exists){ S.rules.push({id:uid('rule'),enabled:true,order:S.rules.length,field:'description',matchType:'contains',value:kw,subcategory:sub,category:cat,transfer:tr,markRecurring:recur,flagReview:flag}); ruled++; }
+      if(!exists){ S.rules.push({id:uid('rule'),enabled:true,order:S.rules.length,field:'description',matchType:'contains',value:kw,subcategory:sub,category:cat,transfer:tr,markRecurring:recur,flagReview:flag,postToDebt:debtId}); ruled++; }
       S.transactions.forEach(x=>{ if(x.id!==t.id && !x.transfer && (!x.subcategory||!x.subcategory.trim()) && (((x.description||'')+' '+(x.merchant||'')).toUpperCase().indexOf(kw)>=0)){ x.subcategory=sub; x.category=cat; x.manualCat=true; x.transfer=tr; if(recur) x.recurring=true; applySign(x); filed++; } });
     }
   });
