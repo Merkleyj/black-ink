@@ -4968,13 +4968,30 @@ function buildSnapshot(){
   const sr=savingsRate(a.income,a.spending);
   let invVal=0,invContrib=0; S.investments.forEach(inv=>{ invVal+=invValue(inv); (inv.holdings||[]).forEach(h=>invContrib+=Number(h.contributions)||holdingCost(h)); });
 
+  // Actual span of the data inside the selected period — a label like "year
+  // to date" is misleading when recorded data only starts partway through.
+  let dataStart=null,dataEnd=null;
+  txs.forEach(t=>{ if(!dataStart||t.date<dataStart)dataStart=t.date; if(!dataEnd||t.date>dataEnd)dataEnd=t.date; });
+  // month arithmetic on the ISO strings directly — new Date('YYYY-MM-DD') is
+  // UTC midnight and shifts a day in local time
+  const _mIdx=d=>{ const p=String(d).split('-'); return Number(p[0])*12+Number(p[1]); };
+  const monthSpan=dataStart? _mIdx(dataEnd)-_mIdx(dataStart)+1 : 0;
+
   // Cover
   L.push(`# Personal Financial Report`);
   L.push(``);
   L.push(`**Reporting period:** ${r.label}`);
+  L.push(`**Data covers:** ${dataStart? `${fmtDate(dataStart)} – ${fmtDate(dataEnd)} (${txs.length} transaction${txs.length===1?'':'s'} across ~${monthSpan} month${monthSpan===1?'':'s'})` : 'no transactions in this period'}`);
   L.push(`**Prepared:** ${today}`);
   L.push(`**Currency:** ${cur}`);
   L.push(`**Accounts included:** ${exportOpts.acct==='all'?'All accounts':cell(accountName(exportOpts.acct))}`);
+  // Recorded data starting well after the selected period start makes totals
+  // look artificially low — call it out so a reader (or Claude) doesn't
+  // misread e.g. "YTD income" when tracking only began in May.
+  if(dataStart && (exportOpts.scope==='ytd'||exportOpts.scope==='range') && new Date(dataStart)-new Date(r.start) > 15*864e5){
+    L.push(``);
+    L.push(`> **Note:** although the selected period starts ${fmtDate(r.start)}, recorded data only begins ${fmtDate(dataStart)}. Totals and averages reflect ~${monthSpan} month${monthSpan===1?'':'s'} of data, not the full period.`);
+  }
   L.push(``);
   L.push(`*Prepared from a personal finance dashboard. All figures are user-entered estimates, not statements from a financial institution. No account numbers are included. This document is confidential.*`);
   L.push(``);
@@ -5002,7 +5019,7 @@ function buildSnapshot(){
   // 1. Executive Summary
   L.push(`## 1. Executive Summary`);
   L.push(``);
-  L.push(`As of ${today}, net worth stands at **${m(nw)}**, comprising ${m(assetsTotal)} in assets against ${m(liabTotal)} in liabilities. Over the reporting period, total income was ${m(a.income)} against ${m(a.spending)} in spending, producing ${a.net>=0?'a net surplus':'a net deficit'} of **${m(Math.abs(a.net))}** and a savings rate of ${pct(sr)}. The emergency fund currently covers ${emergencyMonths().toFixed(1)} month(s) of essential expenses.`);
+  L.push(`As of ${today}, net worth stands at **${m(nw)}**, comprising ${m(assetsTotal)} in assets against ${m(liabTotal)} in liabilities. Over the reporting period, total income was ${m(a.income)} against ${m(a.spending)} in spending, producing ${a.net>=0?'a net surplus':'a net deficit'} of **${m(Math.abs(a.net))}** and a savings rate of ${pct(sr)}. The emergency fund currently covers ${(emergencyMonths()??0).toFixed(1)} month(s) of essential expenses.`);
   L.push(``);
   L.push(`| Metric | Value |`);
   L.push(`| --- | --- |`);
@@ -5016,7 +5033,7 @@ function buildSnapshot(){
   L.push(`| Total debt | ${m(totalDebt())} |`);
   L.push(`| Minimum debt payments | ${m(minPaymentsDue())} / mo |`);
   L.push(`| Investment value | ${m(invVal)} |`);
-  L.push(`| Emergency fund coverage | ${emergencyMonths().toFixed(1)} months |`);
+  L.push(`| Emergency fund coverage | ${emergencyMonths()==null?'—':emergencyMonths().toFixed(1)+' months'} |`);
   L.push(``);
 
   // 2. Profile
@@ -5181,7 +5198,7 @@ function buildSnapshot(){
 function snapshotFlags(a,mk){
   const f=[];
   if(a.net<0) f.push(`Negative cash flow in period (${money(a.net)}).`);
-  if(emergencyMonths()<3) f.push(`Emergency fund below 3 months (${emergencyMonths().toFixed(1)} months).`);
+  if(emergencyMonths()!=null && emergencyMonths()<3) f.push(`Emergency fund below 3 months (${emergencyMonths().toFixed(1)} months).`);
   const thr=Number(S.settings.utilThreshold)||30;
   S.debts.forEach(d=>{ const lim=Number(d.creditLimit)||0; if(lim>0 && Number(d.currentBalance)/lim*100>thr) f.push(`${d.name} credit utilization above ${thr}%.`); });
   S.debts.forEach(d=>{ if(d.promoExpiration){ const days=(new Date(d.promoExpiration)-new Date())/864e5; if(days>0&&days<90) f.push(`${d.name} promotional rate ends in ${Math.round(days)} days (${d.promoExpiration}).`); } });
