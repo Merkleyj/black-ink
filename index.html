@@ -5129,10 +5129,25 @@ function buildSnapshot(){
     S.debts.forEach(d=>{
       const months=payoffMonths(Number(d.currentBalance),Number(d.apr),Number(d.minPayment));
       const util=Number(d.creditLimit)? pct(Number(d.currentBalance)/Number(d.creditLimit)*100):'—';
-      L.push(`| ${cell(d.name)} | ${d.type}, ${d.rateType} | ${m(d.currentBalance)} | ${d.apr}% | ${m(d.minPayment)} | ${util} | ${payoffDateLabel(months)} |`);
+      const inPromo=d.promoExpiration && new Date()<new Date(d.promoExpiration);
+      const aprCell=inPromo? `${Number(d.promoRate)||0}% promo (then ${d.apr}%)` : `${d.apr}%`;
+      L.push(`| ${cell(d.name)} | ${d.type}, ${d.rateType} | ${m(d.currentBalance)} | ${aprCell} | ${m(d.minPayment)} | ${util} | ${payoffDateLabel(months)} |`);
     });
     const promos=S.debts.filter(d=>d.promoExpiration);
-    if(promos.length){ L.push(``); promos.forEach(d=>L.push(`- Promotional rate on ${cell(d.name)} ends ${d.promoExpiration}.`)); }
+    if(promos.length){
+      L.push(``);
+      L.push(`### Promotional rate periods`);
+      L.push(``);
+      L.push(`| Debt | Promo rate | Ends | Days left | Balance | Rate after | Est. interest/mo after promo |`);
+      L.push(`| --- | --- | --- | --- | --- | --- | --- |`);
+      promos.forEach(d=>{
+        const days=Math.round((new Date(d.promoExpiration)-new Date())/864e5);
+        const after=monthlyInterest(Number(d.currentBalance)||0,Number(d.apr)||0);
+        L.push(`| ${cell(d.name)} | ${Number(d.promoRate)||0}% | ${fmtDate(d.promoExpiration)} | ${days>0?days:'expired'} | ${m(d.currentBalance)} | ${d.apr}% | ${days>0? m(after)+' at current balance':'—'} |`);
+      });
+      const active=promos.filter(d=>new Date()<new Date(d.promoExpiration));
+      if(active.length) L.push(``, `Paying a promotional balance down before its end date avoids the post-promo rate entirely; balances shown are as of ${today}.`);
+    }
   } else L.push(`No debts recorded.`);
   L.push(``);
 
