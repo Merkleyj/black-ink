@@ -1339,7 +1339,7 @@ function analyze(txs){
         byMerchant[m]=(byMerchant[m]||0)+L.amount;
         byAccount[t.accountId]=(byAccount[t.accountId]||0)+L.amount;
         const cls=subClassification(L.subcategory)||catClassification(L.category);
-        if(needsWants[cls]!==undefined) needsWants[cls]+=L.amount; else needsWants.want+=L.amount;
+        if(cls!=='neutral'){ if(needsWants[cls]!==undefined) needsWants[cls]+=L.amount; else needsWants.want+=L.amount; }
       }
     }
     if(t.transfer && (t.signed||0)<0){
@@ -1381,7 +1381,9 @@ function subClassification(sub){
 const CLS_PILL={need:'blue',want:'amber',savings:'green',debt:'green',income:'teal',transfer:''};
 function clsPill(cls){ return CLS_PILL[cls]||''; }
 function cycleSubClass(sub, kind){
-  const order = (kind==='transfer') ? ['debt','savings',''] : ['need','want'];
+  // 'neutral' is an explicit exclusion from the 50/30/20 bar (still counted as
+  // spending) — distinct from unset (''), which falls back to the category default.
+  const order = (kind==='transfer') ? ['debt','savings',''] : ['need','want','neutral'];
   const cur=subClassification(sub);
   const next=order[(order.indexOf(cur)+1+order.length)%order.length];
   if(!S.settings.subClass) S.settings.subClass={};
@@ -2966,6 +2968,7 @@ function budgetNeedsWants(){
       if(v<=0) return;
       if(c.kind==='transfer'){ const cls=subClassification(s); if(cls==='debt'||cls==='savings') nw[cls]+=v; return; }
       const cls=subClassification(s)||catClassification(c.name);
+      if(cls==='neutral') return;
       if(nw[cls]!==undefined) nw[cls]+=v; else nw.want+=v;
     });
   });
@@ -4236,7 +4239,7 @@ function viewRules(){
   <div class="card">
     <div class="hd"><h3>Categories <span class="pill">${S.categories.length}</span></h3><button class="btn sm" onclick="addCategory()">+ Add category</button></div>
     <div class="bd">
-    <p class="mini" style="margin:0 0 12px">Each subcategory carries its own needs/wants type — that's what drives the 50/30/20 split. Colors: <span class="pill blue">need</span> <span class="pill amber">want</span> <span class="pill green">savings &amp; debt</span>. Click an expense tag to switch need/want; click a transfer tag to set it as debt, savings, or neither (green counts toward your 50/30/20).</p>
+    <p class="mini" style="margin:0 0 12px">Each subcategory carries its own needs/wants type — that's what drives the 50/30/20 split. Colors: <span class="pill blue">need</span> <span class="pill amber">want</span> <span class="pill green">savings &amp; debt</span>. Click an expense tag to cycle need → want → <b>neutral</b> (neutral still counts as spending but stays out of the 50/30/20 — useful for side-hustle or reimbursed costs); click a transfer tag to set it as debt, savings, or neither.</p>
     <table class="tbl" id="catEditTable"><thead><tr><th>Category</th><th>Kind</th><th>Subcategories</th><th></th></tr></thead><tbody>
       ${S.categories.map((c,i)=>`<tr data-ci="${i}" ondragstart="catDragStart(event,${i})" ondragover="catDragOver(event)" ondragleave="catDragLeave(event)" ondrop="catDrop(event,${i})" ondragend="catDragEnd()">
         <td><span class="drag-grip" title="Drag to reorder" onmousedown="catGripDown(this)">⠿</span><b>${esc(c.name)}</b></td>
@@ -4245,7 +4248,7 @@ function viewRules(){
           if(c.kind==='income'){ return `<span class="pill" style="margin:2px 3px 2px 0">${esc(s)}</span>`; }
           if(c.kind==='transfer'){ const tc=subClassification(s); const col=(tc==='debt'||tc==='savings')?'green':''; return `<span class="pill ${col} cls-chip" style="margin:2px 3px 2px 0" title="${esc(s)} — ${tc||'not counted'} (click: debt → savings → none)" onclick="cycleSubClass('${esc(s)}','transfer')">${esc(s)}<span class="cls-tag">${tc||'—'}</span></span>`; }
           const cl=subClassification(s);
-          return `<span class="pill ${clsPill(cl)} cls-chip" style="margin:2px 3px 2px 0" title="${esc(s)} — ${cl||'unset'} (click: need ↔ want)" onclick="cycleSubClass('${esc(s)}','expense')">${esc(s)}<span class="cls-tag">${cl||'—'}</span></span>`;
+          return `<span class="pill ${clsPill(cl)} cls-chip" style="margin:2px 3px 2px 0" title="${esc(s)} — ${cl||'unset'} (click: need → want → neutral; neutral is left out of the 50/30/20)" onclick="cycleSubClass('${esc(s)}','expense')">${esc(s)}<span class="cls-tag">${cl||'—'}</span></span>`;
         }).join('') : '—'}</td>
         <td class="r nowrap"><button class="icon-btn" onclick="editCategory('${esc(c.name)}')">✎</button>${['Income','Transfers','Uncategorized'].includes(c.name)?'':`<button class="icon-btn danger" onclick="delCategory('${esc(c.name)}')">×</button>`}</td>
       </tr>`).join('')}
