@@ -572,7 +572,6 @@
   .ur-flags label{display:flex;gap:3px;align-items:center;margin:0;cursor:pointer}
   .ur-flags input{width:auto}
   .drag-grip{cursor:grab;color:var(--muted-2);margin-right:7px;user-select:none;display:inline-block}
-  .cat-move{display:none}   /* order buttons are the touch fallback; desktop drags */
   #catEditTable tr.dragging{opacity:.45}
   #catEditTable tr.drop-above td{border-top:2px solid var(--blue)}
   #catEditTable tr.drop-below td{border-bottom:2px solid var(--blue)}
@@ -746,7 +745,6 @@
     #catEditTable td:nth-child(2){grid-row:2;grid-column:1/-1}                                 /* kind */
     #catEditTable td:nth-child(3){grid-row:3;grid-column:1/-1}                                 /* subcategory chips */
     .drag-grip{display:none}   /* HTML5 drag needs a mouse; hide the grip on touch layouts */
-    .cat-move{display:inline-flex}   /* ▲▼ replace dragging on the phone */
 
     /* ---- Debt tab: debts table → cards ---- */
     .debt-tbl,.debt-tbl tbody{display:block}
@@ -4249,7 +4247,7 @@ function viewRules(){
           const cl=subClassification(s);
           return `<span class="pill ${clsPill(cl)} cls-chip" style="margin:2px 3px 2px 0" title="${esc(s)} — ${cl||'unset'} (click: need ↔ want)" onclick="cycleSubClass('${esc(s)}','expense')">${esc(s)}<span class="cls-tag">${cl||'—'}</span></span>`;
         }).join('') : '—'}</td>
-        <td class="r nowrap"><button class="icon-btn cat-move" onclick="moveCategory(${i},-1)" ${i===0?'disabled':''}>▲</button><button class="icon-btn cat-move" onclick="moveCategory(${i},1)" ${i===S.categories.length-1?'disabled':''}>▼</button><button class="icon-btn" onclick="editCategory('${esc(c.name)}')">✎</button>${['Income','Transfers','Uncategorized'].includes(c.name)?'':`<button class="icon-btn danger" onclick="delCategory('${esc(c.name)}')">×</button>`}</td>
+        <td class="r nowrap"><button class="icon-btn" onclick="editCategory('${esc(c.name)}')">✎</button>${['Income','Transfers','Uncategorized'].includes(c.name)?'':`<button class="icon-btn danger" onclick="delCategory('${esc(c.name)}')">×</button>`}</td>
       </tr>`).join('')}
     </tbody></table>
     </div>
@@ -4271,12 +4269,6 @@ function catDragStart(e,i){
   _catDrag=i; e.dataTransfer.effectAllowed='move';
   try{ e.dataTransfer.setData('text/plain',String(i)); }catch(err){}
   requestAnimationFrame(()=>{ const tr=document.querySelector(`#catEditTable tr[data-ci="${i}"]`); if(tr) tr.classList.add('dragging'); });
-}
-function moveCategory(i,dir){
-  const j=i+dir; if(j<0||j>=S.categories.length) return;
-  const [moved]=S.categories.splice(i,1);
-  S.categories.splice(j,0,moved);
-  save(); render();
 }
 function catDragOver(e){
   if(_catDrag==null) return;
