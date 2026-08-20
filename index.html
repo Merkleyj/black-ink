@@ -572,6 +572,7 @@
   .ur-flags label{display:flex;gap:3px;align-items:center;margin:0;cursor:pointer}
   .ur-flags input{width:auto}
   .drag-grip{cursor:grab;color:var(--muted-2);margin-right:7px;user-select:none;display:inline-block}
+  .cat-move{display:none}   /* order buttons are the touch fallback; desktop drags */
   #catEditTable tr.dragging{opacity:.45}
   #catEditTable tr.drop-above td{border-top:2px solid var(--blue)}
   #catEditTable tr.drop-below td{border-bottom:2px solid var(--blue)}
@@ -745,6 +746,7 @@
     #catEditTable td:nth-child(2){grid-row:2;grid-column:1/-1}                                 /* kind */
     #catEditTable td:nth-child(3){grid-row:3;grid-column:1/-1}                                 /* subcategory chips */
     .drag-grip{display:none}   /* HTML5 drag needs a mouse; hide the grip on touch layouts */
+    .cat-move{display:inline-flex}   /* ▲▼ replace dragging on the phone */
 
     /* ---- Debt tab: debts table → cards ---- */
     .debt-tbl,.debt-tbl tbody{display:block}
@@ -4238,8 +4240,8 @@ function viewRules(){
     <div class="bd">
     <p class="mini" style="margin:0 0 12px">Each subcategory carries its own needs/wants type — that's what drives the 50/30/20 split. Colors: <span class="pill blue">need</span> <span class="pill amber">want</span> <span class="pill green">savings &amp; debt</span>. Click an expense tag to switch need/want; click a transfer tag to set it as debt, savings, or neither (green counts toward your 50/30/20).</p>
     <table class="tbl" id="catEditTable"><thead><tr><th>Category</th><th>Kind</th><th>Subcategories</th><th></th></tr></thead><tbody>
-      ${S.categories.map((c,i)=>`<tr draggable="true" data-ci="${i}" ondragstart="catDragStart(event,${i})" ondragover="catDragOver(event)" ondragleave="catDragLeave(event)" ondrop="catDrop(event,${i})" ondragend="catDragEnd()">
-        <td><span class="drag-grip" title="Drag to reorder">⠿</span><b>${esc(c.name)}</b></td>
+      ${S.categories.map((c,i)=>`<tr data-ci="${i}" ondragstart="catDragStart(event,${i})" ondragover="catDragOver(event)" ondragleave="catDragLeave(event)" ondrop="catDrop(event,${i})" ondragend="catDragEnd()">
+        <td><span class="drag-grip" title="Drag to reorder" onmousedown="catGripDown(this)">⠿</span><b>${esc(c.name)}</b></td>
         <td><span class="kind-tag ${esc(c.kind)}"><span class="kglyph">${c.kind==='income'?'\u2191':c.kind==='transfer'?'\u21C4':'\u2193'}</span>${esc(c.kind)}</span></td>
         <td>${(c.subs&&c.subs.length)? c.subs.map(s=>{
           if(c.kind==='income'){ return `<span class="pill" style="margin:2px 3px 2px 0">${esc(s)}</span>`; }
@@ -4247,20 +4249,34 @@ function viewRules(){
           const cl=subClassification(s);
           return `<span class="pill ${clsPill(cl)} cls-chip" style="margin:2px 3px 2px 0" title="${esc(s)} — ${cl||'unset'} (click: need ↔ want)" onclick="cycleSubClass('${esc(s)}','expense')">${esc(s)}<span class="cls-tag">${cl||'—'}</span></span>`;
         }).join('') : '—'}</td>
-        <td class="r nowrap"><button class="icon-btn" onclick="editCategory('${esc(c.name)}')">✎</button>${['Income','Transfers','Uncategorized'].includes(c.name)?'':`<button class="icon-btn danger" onclick="delCategory('${esc(c.name)}')">×</button>`}</td>
+        <td class="r nowrap"><button class="icon-btn cat-move" onclick="moveCategory(${i},-1)" ${i===0?'disabled':''}>▲</button><button class="icon-btn cat-move" onclick="moveCategory(${i},1)" ${i===S.categories.length-1?'disabled':''}>▼</button><button class="icon-btn" onclick="editCategory('${esc(c.name)}')">✎</button>${['Income','Transfers','Uncategorized'].includes(c.name)?'':`<button class="icon-btn danger" onclick="delCategory('${esc(c.name)}')">×</button>`}</td>
       </tr>`).join('')}
     </tbody></table>
     </div>
   </div>`;
 }
 
-/* ---- Category drag-to-reorder (grip-initiated so chips stay clickable) ---- */
+/* ---- Category drag-to-reorder ----
+   Rows are NOT draggable at rest (native dragstart fires with the row as
+   target, so gating inside the handler can't tell grip from row). The grip's
+   mousedown arms the row; anything else never starts a drag, keeping the
+   subcategory chips clickable and text selectable. */
 let _catDrag=null;
+function catGripDown(grip){
+  const tr=grip.closest('tr'); if(!tr) return;
+  tr.setAttribute('draggable','true');
+  document.addEventListener('mouseup',()=>tr.removeAttribute('draggable'),{once:true});
+}
 function catDragStart(e,i){
-  if(!(e.target && e.target.closest && e.target.closest('.drag-grip'))){ e.preventDefault(); return; }
   _catDrag=i; e.dataTransfer.effectAllowed='move';
   try{ e.dataTransfer.setData('text/plain',String(i)); }catch(err){}
   requestAnimationFrame(()=>{ const tr=document.querySelector(`#catEditTable tr[data-ci="${i}"]`); if(tr) tr.classList.add('dragging'); });
+}
+function moveCategory(i,dir){
+  const j=i+dir; if(j<0||j>=S.categories.length) return;
+  const [moved]=S.categories.splice(i,1);
+  S.categories.splice(j,0,moved);
+  save(); render();
 }
 function catDragOver(e){
   if(_catDrag==null) return;
