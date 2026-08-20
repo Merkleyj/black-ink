@@ -4741,6 +4741,9 @@ function scanQuality(){
   const _ddebt=new Set((S.settings.dismissedDebtRecon)||[]);
   const debtMismatch=[];
   S.debts.forEach(d=>{ if(!d.payments||!d.payments.length||!d.originalPrincipal||_ddebt.has(d.id)) return;
+    // Card mirrors can never reconcile this way: new purchases offset payments
+    // and the balance is anchored to the bank via Plaid — skip them.
+    if(d.cardMirror) return;
     const paidPrincipal=d.payments.reduce((s,p)=>s+(Number(p.principal)||0)-(Number(p.newCharges)||0),0);
     const expected=Number(d.originalPrincipal)-paidPrincipal;
     if(Math.abs(expected-Number(d.currentBalance))>Math.max(25,Number(d.originalPrincipal)*0.02)) debtMismatch.push({d,expected});
