@@ -903,12 +903,13 @@
   /* every card fills its container; body flexes so charts/lists fill the height */
   html.tv-mode .card{margin:0!important;border-radius:var(--radius);box-shadow:none;display:flex;flex-direction:column;overflow:hidden;min-height:0}
   html.tv-mode .card>.hd{padding:.7vh 1.1vw!important;flex:0 0 auto}
-  html.tv-mode .card .hd h3{font-size:clamp(.82rem,1.75vh,1.25rem)}
+  html.tv-mode .card .hd h3{font-size:clamp(.95rem,2vh,1.45rem)}
   html.tv-mode .card>.bd{padding:.7vh 1.1vw!important;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:1.5vh 1.3vw!important;align-content:center;flex:0 0 auto;padding:.4vh 0}
-  html.tv-mode .snap-item{padding:.2vh 0!important;border-bottom:none!important;line-height:1.12}
-  html.tv-mode .snap-l{font-size:clamp(.5rem,1.1vh,.82rem);line-height:1.05}
-  html.tv-mode .snap-v{font-size:clamp(.78rem,1.7vh,1.3rem)!important;line-height:1.1}
+  /* Snapshot stats spread over the card's full height (no dead band below) */
+  html.tv-mode .snap-grid{grid-template-columns:repeat(6,1fr)!important;gap:1.5vh 1.3vw!important;align-content:space-evenly;flex:1 1 auto!important;padding:.4vh 0}
+  html.tv-mode .snap-item{padding:.2vh 0!important;border-bottom:none!important;line-height:1.15}
+  html.tv-mode .snap-l{font-size:clamp(.62rem,1.5vh,1.05rem);line-height:1.1}
+  html.tv-mode .snap-v{font-size:clamp(1rem,2.5vh,1.9rem)!important;line-height:1.12}
   html.tv-mode .chart-wrap{height:100%!important;min-height:0;flex:1}
   html.tv-mode .card>.hd{flex-wrap:nowrap}
   html.tv-mode .tv-legend{display:flex;gap:1vw;align-items:center;margin-left:1.2vw;font-size:clamp(.55rem,1.2vh,.9rem);color:var(--muted);white-space:nowrap}
@@ -920,17 +921,19 @@
   html.tv-mode .ov-split>.card:first-child{display:none}
   html.tv-mode .ov-split>.card:last-child{height:100%}
   html.tv-mode .att-list{gap:0;justify-content:center;flex:1;display:flex;flex-direction:column}
-  html.tv-mode .att-row{padding:.8vh 2px!important;font-size:clamp(.66rem,1.5vh,1.05rem)}
+  html.tv-mode .att-row{padding:1vh 2px!important;font-size:clamp(.78rem,1.85vh,1.3rem)}
   html.tv-mode .att-row a{display:none}
   html.tv-mode .att-clear b{font-size:clamp(.8rem,1.7vh,1.2rem)}
 
-  /* Budget Progress compact */
+  /* Budget Progress: rows spread over the card's full height, bigger type + bars */
   html.tv-mode .bp-overall{margin-bottom:.6vh!important;gap:.7vw!important;flex:0 0 auto}
-  html.tv-mode .bp-overall .bp-big{font-size:clamp(.8rem,1.8vh,1.35rem)!important}
-  html.tv-mode .bp-rows{gap:.35vh!important;flex:1;min-height:0;justify-content:flex-start;display:flex;flex-direction:column;overflow:hidden}
+  html.tv-mode .bp-overall .bp-big{font-size:clamp(1rem,2.3vh,1.7rem)!important}
+  html.tv-mode .bp-overall .bp-track{height:1.8vh!important}
+  html.tv-mode .bp-rows{gap:.6vh!important;flex:1;min-height:0;justify-content:space-evenly;display:flex;flex-direction:column;overflow:hidden}
   html.tv-mode .bp-row{grid-template-columns:26% 1fr 32%!important;gap:.8vw!important;align-items:center}
-  html.tv-mode .bp-name{font-size:clamp(.62rem,1.35vh,1rem)!important}
-  html.tv-mode .bp-fig{font-size:clamp(.56rem,1.2vh,.9rem)!important;text-align:right}
+  html.tv-mode .bp-name{font-size:clamp(.78rem,1.8vh,1.3rem)!important}
+  html.tv-mode .bp-fig{font-size:clamp(.7rem,1.6vh,1.15rem)!important;text-align:right}
+  html.tv-mode .bp-bar{height:1.5vh!important}
 
   /* fixed clock + exit affordances (only in tv-mode) */
   html:not(.tv-mode) #tvClockBox,html:not(.tv-mode) #tvClickCatch,html:not(.tv-mode) .tv-exit-hint{display:none}
