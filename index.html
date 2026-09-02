@@ -1320,6 +1320,12 @@ function budgetLines(t){
   if(isTransfer(t)) return [{amount:0, category:t.category||'', subcategory:t.subcategory||'', dir:'wash'}];
   return [lineFor(Math.abs(Number(t.amount)||0), t.category||'', t.subcategory||'')];
 }
+/* Uncategorized, for flagging: split transactions carry categories on their
+   lines — the parent's own category field stays empty, which must not count. */
+function isUncategorizedTx(t){
+  if(Array.isArray(t.splits)&&t.splits.length) return t.splits.some(s=>!s.category||s.category==='Uncategorized');
+  return !t.category||t.category==='Uncategorized';
+}
 function txFlow(t){
   let income=0, spending=0;
   for(const L of budgetLines(t)){ if(L.dir==='income') income+=L.amount; else if(L.dir==='spending') spending+=L.amount; }
@@ -2182,7 +2188,7 @@ function overviewAttention(a, br){
     out.push({tone:'red', text:`You spent <b>${money(Math.abs(a.net))}</b> more than you earned this period.`});
   const over=S.categories.filter(c=>{ if(c.kind!=='expense') return false; const b=budgetForRangeCat(c.name); return b>0 && (a.byCat[c.name]||0) > b; });
   if(over.length) out.push({tone:'red', text:`<b>${over.length}</b> categor${over.length>1?'ies':'y'} over budget — ${over.slice(0,2).map(c=>esc(c.name)).join(', ')}${over.length>2?'…':''}.`, link:`go('budget')`, linkLabel:'Review budget'});
-  const uncats=S.transactions.filter(t=>(!t.category||t.category==='Uncategorized')).length;
+  const uncats=S.transactions.filter(isUncategorizedTx).length;
   if(uncats) out.push({tone:'amber', text:`<b>${uncats}</b> uncategorized transaction${uncats>1?'s':''} affecting your totals.`, link:`go('rules')`, linkLabel:'Categorize'});
   const em=emergencyMonths();
   if(em!=null && em<3) out.push({tone:'amber', text:`Emergency fund covers <b>${em.toFixed(1)} months</b> — aim for 3+.`});
@@ -4000,7 +4006,7 @@ function viewReview(){
   // unusual: amount > 2.5x that category's 3-mo average, or > $250 one-off
   const unusual=expenses.filter(t=>{ const avg=avgSpend(t.category,3); const amt=txFlow(t).spending; return (avg>0 && amt>avg*1.6 && amt>80) || amt>400; }).slice(0,6);
 
-  const uncats=txs.filter(t=>(!t.category||t.category==='Uncategorized') && txFlow(t).spending>0).length;
+  const uncats=txs.filter(t=>isUncategorizedTx(t) && txFlow(t).spending>0).length;
 
   // upcoming bills (recurring) + debt due dates
   const recurringBills=[...new Map(txs.filter(t=>t.recurring && txFlow(t).spending>0).map(t=>[merchantLabel(t), t])).values()].slice(0,8);
@@ -4195,7 +4201,7 @@ function rulesCardBody(){
     </tbody></table>${rulePages>1?`<div class="pager"><button class="btn sm" ${rulePage<=1?'disabled':''} onclick="gotoRulePage(${rulePage-1})">‹ Prev</button>${_pageBtns}<button class="btn sm" ${rulePage>=rulePages?'disabled':''} onclick="gotoRulePage(${rulePage+1})">Next ›</button><span class="mini pager-info">Showing ${ruleStart+1}–${Math.min(ruleStart+RULES_PER_PAGE,ruleTotal)} of ${ruleTotal}</span></div>`:''}`;
 }
 function viewRules(){
-  const uncats=S.transactions.filter(t=> !isTransfer(t) && ((!t.category||t.category==='Uncategorized') || ((t.kind||t.flow)==='income' && !(t.subcategory&&t.subcategory.trim())))).sort((a,b)=>b.date.localeCompare(a.date));
+  const uncats=S.transactions.filter(t=> !isTransfer(t) && (isUncategorizedTx(t) || (!(Array.isArray(t.splits)&&t.splits.length) && (t.kind||t.flow)==='income' && !(t.subcategory&&t.subcategory.trim())))).sort((a,b)=>b.date.localeCompare(a.date));
   return `
   <div class="page-head"><div><h1>Categories &amp; rules</h1>
     <p class="sub">Teach the dashboard to file transactions automatically, and shape your category structure.</p></div>
@@ -4743,7 +4749,7 @@ function scanQuality(){
     items:dupsV.map(d=>({label:`${fmtDate(d.b.date)} · ${esc(d.b.merchant||d.b.description)} · ${money(Math.abs(d.b.amount))}`,action:`<button class="btn sm" onclick="qDismissDupe('${d.b.id}')">Not a dup</button> <button class="btn sm danger" onclick="qDelete('${d.b.id}')">Delete dup</button>`}))});
 
   // uncategorized
-  const uncats=S.transactions.filter(t=>!t.category||t.category==='Uncategorized');
+  const uncats=S.transactions.filter(isUncategorizedTx);
   groups.push({title:'Uncategorized transactions',icon:'⚑',tone:'warn',help:'These are excluded from category budgets until filed.',
     bulk:uncats.length?`go('rules')`:'',bulkLabel:'Review now',
     items:uncats.map(t=>({label:`${fmtDate(t.date)} · ${esc(t.merchant||t.description)} · ${money(Math.abs(t.amount))}`,action:`<button class="btn sm" onclick="go('rules')">Categorize</button>`}))});
@@ -5270,7 +5276,7 @@ function snapshotFlags(a,mk){
   S.debts.forEach(d=>{ const lim=Number(d.creditLimit)||0; if(lim>0 && Number(d.currentBalance)/lim*100>thr) f.push(`${d.name} credit utilization above ${thr}%.`); });
   S.debts.forEach(d=>{ if(d.promoExpiration){ const days=(new Date(d.promoExpiration)-new Date())/864e5; if(days>0&&days<90) f.push(`${d.name} promotional rate ends in ${Math.round(days)} days (${d.promoExpiration}).`); } });
   const hi=S.debts.filter(d=>Number(d.apr)>=20); if(hi.length) f.push(`High-interest debt present (APR ≥ 20%): ${hi.map(d=>d.name).join(', ')}.`);
-  if(S.transactions.some(t=>!t.category||t.category==='Uncategorized')) f.push(`Some transactions are uncategorized; spending totals may be incomplete.`);
+  if(S.transactions.some(isUncategorizedTx)) f.push(`Some transactions are uncategorized; spending totals may be incomplete.`);
   return f;
 }
 
