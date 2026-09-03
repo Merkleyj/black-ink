@@ -462,10 +462,14 @@
       // Depository accounts: prefer `available` (posted minus pending holds) so the
       // shown balance matches the bank app's headline number. Credit accounts must
       // use `current` — their `available` is remaining credit limit, not amount owed.
+      // Some banks (e.g. Marcus savings) report available=0 with the real balance
+      // in `current` — a zero available that disagrees with current is a data
+      // quirk, not a balance; fall back to current.
       const b = pa.balances || {};
+      const availOk = b.available != null && !(b.available === 0 && Number(b.current) > 0);
       const bal = acct.type === 'credit'
         ? (b.current != null ? b.current : b.available)
-        : (b.available != null ? b.available : b.current);
+        : (availOk ? b.available : b.current);
       if (bal == null) return;
       const target = acct.type === 'credit' ? -Math.abs(bal) : bal;   // credit shows as owed (negative)
       const sumSigned = S.transactions.filter(t => t.accountId === acctId).reduce((s, t) => s + (Number(t.signed) || 0), 0);
