@@ -62,9 +62,11 @@ Deno.serve(async (req) => {
     // `unlink` and `status` are deliberately NOT gated: disconnecting must
     // always work, and status is harmless.
     const PLUS_ACTIONS = ["link_token", "exchange", "sync", "set_webhooks"];
+    let subStatus = "";
     if (PLUS_ACTIONS.includes(action)) {
       const { data: subRow } = await admin.from("subscriptions").select("status").eq("user_id", user.id).maybeSingle();
-      const ok = !!subRow && ["comp", "active", "trialing", "past_due"].includes(subRow.status);
+      subStatus = subRow?.status ?? "";
+      const ok = ["comp", "active", "trialing", "past_due"].includes(subStatus);
       if (!ok) {
         return json({
           error: "Bank sync is part of Black Ink Plus — upgrade from the Accounts tab.",
@@ -93,10 +95,11 @@ Deno.serve(async (req) => {
         return json({ link_token: d.link_token });
       }
       // Fair-use cap: Plus includes up to 4 linked institutions (each one has
-      // a recurring per-account cost on our side).
+      // a recurring per-account cost on our side). Comp grants are hand-picked
+      // (owner/friends) and bear their own cost — no cap.
       const { count } = await admin.from("plaid_items")
         .select("*", { count: "exact", head: true }).eq("user_id", user.id);
-      if ((count ?? 0) >= 4) {
+      if (subStatus !== "comp" && (count ?? 0) >= 4) {
         return json({
           error: "Your plan includes up to 4 linked institutions. Disconnect one from the Accounts tab to add another.",
           code: "INSTITUTION_LIMIT",
