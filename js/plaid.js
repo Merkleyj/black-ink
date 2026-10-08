@@ -91,6 +91,7 @@
       const res = mapPlaidData(data);
       S.plaidLastSync = Date.now();
       save(); render();
+      ackCursors(data);
       if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');
       else toast(`Synced — ${res.imported} new, ${res.updated} updated${res.removed ? ', ' + res.removed + ' removed' : ''}${res.autoPosted ? ` · ${res.autoPosted} debt payment${res.autoPosted === 1 ? '' : 's'} logged` : ''}`, 'ok');
     } catch (e) {
@@ -98,6 +99,24 @@
     } finally {
       const b = document.getElementById('plaidSyncBtn'); if (b) { b.disabled = false; b.textContent = 'Sync now'; }
     }
+  }
+
+  /* Two-phase sync commit: the server only persists transaction cursors after
+     we confirm the data was applied and saved locally. A lost ack just means
+     the next sync re-delivers the same window (imports dedup by plaid id). */
+  function ackCursors(data) {
+    if (!data || !Array.isArray(data.cursors) || !data.cursors.length) return;
+    invoke('ack', { cursors: data.cursors }).catch(() => { /* re-delivered next sync */ });
+  }
+
+  /* Date-ranged recovery import that bypasses the sync cursor — used to
+     repair windows lost to a sync whose response never reached the client. */
+  async function backfillRange(start, end) {
+    const data = await invoke('backfill', { start, end });
+    const res = mapPlaidData(data);
+    S.plaidLastSync = Date.now();
+    save(); if (typeof render === 'function') render();
+    return res;
   }
 
   function hasLinks() {
@@ -115,6 +134,7 @@
       const res = mapPlaidData(data);
       S.plaidLastSync = Date.now();
       save();
+      ackCursors(data);
       if (res.imported || res.updated || res.removed || res.autoPosted || (S.plaidReauth || []).length) {
         render();
         if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');
@@ -496,5 +516,5 @@
     catch (e) { toast('Could not disconnect: ' + e.message, 'err'); }
   }
 
-  window.BlackInkPlaid = { connectBank, syncNow, unlink, reconnect, maybeAutoSync, checkForUpdates, setWebhooks: () => invoke('set_webhooks'), hasLinks, available, _map: mapPlaidData };
+  window.BlackInkPlaid = { connectBank, syncNow, unlink, reconnect, maybeAutoSync, checkForUpdates, backfillRange, setWebhooks: () => invoke('set_webhooks'), hasLinks, available, _map: mapPlaidData };
 })();

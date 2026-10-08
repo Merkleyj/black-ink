@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     // manual grants). Enforced here — the UI gate is only cosmetic.
     // `unlink` and `status` are deliberately NOT gated: disconnecting must
     // always work, and status is harmless.
-    const PLUS_ACTIONS = ["link_token", "exchange", "sync", "set_webhooks"];
+    const PLUS_ACTIONS = ["link_token", "exchange", "sync", "set_webhooks", "ack", "backfill"];
     let subStatus = "";
     if (PLUS_ACTIONS.includes(action)) {
       const { data: subRow } = await admin.from("subscriptions").select("status").eq("user_id", user.id).maybeSingle();
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       const { data: items } = await admin.from("plaid_items").select("*").eq("user_id", user.id);
       const out: any = {
         added: [], modified: [], removed: [], accounts: [],
-        liabilities: [], holdings: [], securities: [], reauth: [],
+        liabilities: [], holdings: [], securities: [], reauth: [], cursors: [],
         items: (items ?? []).map((i: any) => ({ item_id: i.item_id, institution: i.institution })),
       };
       const needsReauth = (it: any) => {
@@ -183,7 +183,52 @@ Deno.serve(async (req) => {
             throw e;
           }
         }
-        await admin.from("plaid_items").update({ cursor, updates_available: false }).eq("id", it.id);
+        // Two-phase commit: do NOT persist the cursor here. If this response
+        // never reaches the client (closed tab, network drop), a saved cursor
+        // would skip these transactions forever. The client applies the data,
+        // then acks; only the ack persists the cursor. Re-delivery on a lost
+        // ack is harmless — imports dedup by plaid id and fingerprint.
+        if (cursor !== it.cursor) out.cursors.push({ row_id: it.id, cursor });
+      }
+      return json(out);
+    }
+
+    // Client acknowledgment that a sync's transactions were applied and saved:
+    // persist the new cursors now (scoped to this user's own items).
+    if (action === "ack") {
+      const list = Array.isArray(body.cursors) ? body.cursors : [];
+      for (const c of list) {
+        if (!c || typeof c.row_id === "undefined" || typeof c.cursor !== "string") continue;
+        await admin.from("plaid_items").update({ cursor: c.cursor, updates_available: false })
+          .eq("id", c.row_id).eq("user_id", user.id);
+      }
+      return json({ ok: true, acked: list.length });
+    }
+
+    // Date-ranged recovery import, bypassing the sync cursor — for windows a
+    // lost sync response skipped. Idempotent client-side (plaid id dedup).
+    if (action === "backfill") {
+      const start = String(body.start || "").slice(0, 10);
+      const end = String(body.end || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+        return json({ error: "start and end must be YYYY-MM-DD" }, 400);
+      }
+      const { data: items } = await admin.from("plaid_items").select("*").eq("user_id", user.id);
+      const out: any = { added: [], modified: [], removed: [], accounts: [], liabilities: [], holdings: [], securities: [], reauth: [] };
+      for (const it of items ?? []) {
+        try {
+          let offset = 0;
+          while (true) {
+            const d = await plaid("/transactions/get", {
+              access_token: it.access_token, start_date: start, end_date: end,
+              options: { count: 250, offset, include_personal_finance_category: true },
+            });
+            if (offset === 0) out.accounts.push(...(d.accounts ?? []).map((x: any) => ({ ...x, item_id: it.item_id })));
+            out.added.push(...(d.transactions ?? []).map((t: any) => ({ ...t, item_id: it.item_id })));
+            offset += (d.transactions ?? []).length;
+            if (offset >= (d.total_transactions ?? 0) || (d.transactions ?? []).length === 0) break;
+          }
+        } catch (_e) { /* best effort per item (reauth/product gaps just skip) */ }
       }
       return json(out);
     }
