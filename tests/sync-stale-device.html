@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Black Ink — sync stale-device tests</title>
+<style>
+  body{font:14px/1.5 system-ui;margin:30px;max-width:760px}
+  li{margin:4px 0} .pass{color:#0a7d4f} .fail{color:#c0392b;font-weight:700}
+  #summary{font-size:18px;font-weight:700;margin-top:14px}
+</style>
+</head>
+<body>
+<h1>Cloud sync — stale-device safety tests</h1>
+<p>Runs js/sync.js against an in-memory fake Supabase. The fake cloud enforces
+nothing; every guarantee asserted below must come from the client logic.</p>
+<ul id="results"></ul>
+<div id="summary">running…</div>
+
+<script>
+  // ---- minimal app globals sync.js expects ----
+  var STORAGE_KEY = 'test_pfd_state_v1';
+  var PERSIST = false;
+  var Store = {
+    get: async (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: async (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  };
+  var toasts = [];
+  window.toast = (msg) => toasts.push(String(msg));
+</script>
+<script src="../js/sync.js"></script>
+<script>
+(async () => {
+  const results = document.getElementById('results');
+  let passed = 0, failed = 0;
+  const check = (name, cond, detail) => {
+    const li = document.createElement('li');
+    li.textContent = (cond ? 'PASS — ' : 'FAIL — ') + name + (cond ? '' : (' :: ' + (detail || '')));
+    li.className = cond ? 'pass' : 'fail';
+    results.appendChild(li);
+    if (cond) passed++; else failed++;
+  };
+
+  // ---- fake Supabase: one user_data row, NO server-side guarantees ----
+  function makeFakeCloud(row) {
+    const cloud = { row: row ? JSON.parse(JSON.stringify(row)) : null, writes: 0 };
+    cloud.from = (table) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: cloud.row ? JSON.parse(JSON.stringify(cloud.row)) : null, error: null }) }) }),
+      update: (patch) => {
+        const b = { _eqs: {} };
+        b.eq = (col, val) => { b._eqs[col] = val; return b; };
+        b.select = async () => {
+          if (cloud.row && cloud.row.revision === b._eqs.revision) {
+            Object.assign(cloud.row, JSON.parse(JSON.stringify(patch)));
+            cloud.writes++;
+            return { data: [{ revision: cloud.row.revision }], error: null };
+          }
+          return { data: [], error: null };   // CAS miss: no rows matched
+        };
+        return b;
+      },
+      insert: async (obj) => {
+        if (cloud.row) return { error: { message: 'duplicate key' } };
+        cloud.row = JSON.parse(JSON.stringify(obj));
+        cloud.writes++;
+        return { error: null };
+      },
+    });
+    return cloud;
+  }
+
+  const META = 'blackink_sync_meta';
+  const HEAL = 'blackink_plaid_heal_from';
+  const S_NEW  = JSON.stringify({ accounts: [{ id: 'a' }], note: 'NEW cloud work (laptop, days of edits)', plaidLastSync: 1760000000000 });
+  const S_OLD  = JSON.stringify({ accounts: [{ id: 'a' }], note: 'OLD stale phone copy',                 plaidLastSync: 1759000000000 });
+  const S_EDIT = JSON.stringify({ accounts: [{ id: 'a' }], note: 'legit single-device edit',            plaidLastSync: 1760000000000 });
+
+  function resetLocal(stateStr, meta) {
+    Object.keys(localStorage).forEach((k) => { if (k.indexOf('blackink_backup_') === 0) localStorage.removeItem(k); });
+    localStorage.removeItem(HEAL);
+    if (stateStr == null) localStorage.removeItem(STORAGE_KEY); else localStorage.setItem(STORAGE_KEY, stateStr);
+    localStorage.setItem(META, JSON.stringify(meta));
+    toasts.length = 0;
+  }
+  const backups = (label) => Object.keys(localStorage).filter((k) => k.indexOf('blackink_backup_' + label) === 0);
+  const meta = () => JSON.parse(localStorage.getItem(META) || '{}');
+
+  const Sync = window.BlackInkSync;
+  Sync.setUser({ id: 'user-1' });
+  Sync.installStoreBridge();
+
+  // ================= T1: THE INCIDENT =================
+  // Phone holds a stale copy + a leftover dirty flag; cloud is days ahead at
+  // revision 7. The phone boots (Store.get triggers pull+reconcile).
+  let cloud = makeFakeCloud({ user_id: 'user-1', state: JSON.parse(S_NEW), revision: 7, device_id: 'laptop' });
+  Sync.init(cloud);
+  resetLocal(S_OLD, { revision: 3, dirty: true, deviceId: 'phone' });
+  const resolved1 = await Store.get(STORAGE_KEY);
+
+  check('T1 stale device does NOT overwrite newer cloud data', JSON.stringify(cloud.row.state) === S_NEW && cloud.row.revision === 7,
+    'cloud is now rev ' + cloud.row.revision + ' / ' + (cloud.row.state && cloud.row.state.note));
+  check('T1 stale device adopts the newer cloud copy', resolved1 === S_NEW && localStorage.getItem(STORAGE_KEY) === S_NEW);
+  check('T1 the stale local copy is backed up before the overwrite', backups('conflict').some((k) => localStorage.getItem(k) === S_OLD));
+  check('T1 device base revision realigns to the cloud', meta().revision === 7 && meta().dirty === false);
+  check('T1 the user is told about the conflict', toasts.length > 0);
+  check('T1 no heal flag — adopted copy is AHEAD in Plaid time, no gap', !localStorage.getItem(HEAL));
+
+  // ================= T2: legit single-device edit still pushes =================
+  cloud = makeFakeCloud({ user_id: 'user-1', state: JSON.parse(S_NEW), revision: 7, device_id: 'laptop' });
+  Sync.init(cloud);
+  resetLocal(S_EDIT, { revision: 7, dirty: true, deviceId: 'laptop' });
+  const resolved2 = await Store.get(STORAGE_KEY);
+  check('T2 edit based on the current cloud revision fast-forwards', JSON.stringify(cloud.row.state) === S_EDIT && cloud.row.revision === 8 && resolved2 === S_EDIT,
+    'cloud rev ' + cloud.row.revision);
+  check('T2 meta advances with the push', meta().revision === 8 && meta().dirty === false);
+
+  // ================= T3: pushNow loses a CAS race safely =================
+  cloud = makeFakeCloud({ user_id: 'user-1', state: JSON.parse(S_NEW), revision: 9, device_id: 'other' });
+  Sync.init(cloud);
+  resetLocal(S_OLD, { revision: 8, dirty: true, deviceId: 'phone' });   // base 8, but cloud moved to 9
+  const pushed = await Sync.pushNow();
+  check('T3 losing push reports failure and leaves the cloud untouched', pushed === false && cloud.row.revision === 9 && JSON.stringify(cloud.row.state) === S_NEW);
+  check('T3 loser adopts cloud and keeps a backup of its copy', localStorage.getItem(STORAGE_KEY) === S_NEW && backups('conflict').some((k) => localStorage.getItem(k) === S_OLD));
+
+  // ================= T4: clean catch-up (not dirty) backs up quietly =================
+  cloud = makeFakeCloud({ user_id: 'user-1', state: JSON.parse(S_NEW), revision: 12, device_id: 'laptop' });
+  Sync.init(cloud);
+  resetLocal(S_OLD, { revision: 3, dirty: false, deviceId: 'phone' });
+  await Store.get(STORAGE_KEY);
+  check('T4 clean stale device catches up without touching the cloud', cloud.writes === 0 && localStorage.getItem(STORAGE_KEY) === S_NEW);
+  check('T4 outgoing local copy still backed up', backups('local').some((k) => localStorage.getItem(k) === S_OLD));
+
+  // ================= T6: adopting an OLDER-Plaid cloud copy flags a heal ====
+  // A device whose local state contains freshly imported bank transactions
+  // loses a CAS race to a cloud copy whose Plaid clock is 10+ days behind.
+  // The server-side cursor is already past those transactions, so the sync
+  // engine must flag a date-ranged backfill — otherwise they'd be skipped.
+  const S_PLAID_AHEAD  = JSON.stringify({ accounts: [{ id: 'a' }], note: 'local with fresh bank imports', plaidLastSync: 1760000000000 });
+  const S_PLAID_BEHIND = JSON.stringify({ accounts: [{ id: 'a' }], note: 'cloud 10+ days behind in plaid time', plaidLastSync: 1759000000000 });
+  cloud = makeFakeCloud({ user_id: 'user-1', state: JSON.parse(S_PLAID_BEHIND), revision: 20, device_id: 'other' });
+  Sync.init(cloud);
+  resetLocal(S_PLAID_AHEAD, { revision: 19, dirty: true, deviceId: 'laptop' });
+  await Sync.pushNow();   // loses: base 19 vs cloud 20 → adopts older-Plaid cloud
+  check('T6 heal flag set when the adopted copy is behind in Plaid time', !!localStorage.getItem(HEAL),
+    'flag=' + localStorage.getItem(HEAL));
+  check('T6 heal window starts at/before the adopted Plaid clock minus margin',
+    (localStorage.getItem(HEAL) || '9999') <= new Date(1759000000000 - 3 * 864e5 + 864e5).toISOString().slice(0, 10));
+
+  // ================= T5: first sync seeds an empty cloud =================
+  cloud = makeFakeCloud(null);
+  Sync.init(cloud);
+  resetLocal(S_EDIT, { revision: 0, dirty: false, deviceId: 'phone' });
+  const resolved5 = await Store.get(STORAGE_KEY);
+  check('T5 empty cloud is seeded from the device', cloud.row && JSON.stringify(cloud.row.state) === S_EDIT && resolved5 === S_EDIT);
+
+  // teardown: remove test keys so the app on this origin is unaffected
+  resetLocal(null, {});
+  localStorage.removeItem(META); localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(HEAL);
+
+  const sum = document.getElementById('summary');
+  sum.textContent = failed === 0 ? ('ALL ' + passed + ' CHECKS PASSED') : (failed + ' FAILED / ' + passed + ' passed');
+  sum.style.color = failed === 0 ? '#0a7d4f' : '#c0392b';
+  sum.id = 'summary'; sum.dataset.failed = failed; sum.dataset.passed = passed;
+})();
+</script>
+</body>
+</html>

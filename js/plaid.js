@@ -83,15 +83,57 @@
   }
 
   /* ---------- sync + mapping ---------- */
+  /* Pull + reconcile the cloud state BEFORE importing bank data, so a stale
+     device never imports into (and then pushes) an outdated state. */
+  async function refreshBeforeSync() {
+    try {
+      if (window.BlackInkSync && BlackInkSync.user && typeof BlackInkSync.refresh === 'function') {
+        const changed = await BlackInkSync.refresh();
+        if (changed && typeof loadState === 'function') {
+          await loadState();
+          if (typeof buildAcctFilter === 'function') buildAcctFilter();
+          if (typeof render === 'function') render();
+        }
+      }
+    } catch (e) { /* offline: proceed on local state */ }
+  }
+
+  /* A restore or cloud adoption moved the state's Plaid clock backwards:
+     re-import the window the server cursor already passed. Idempotent. */
+  async function healIfFlagged() {
+    let from = null;
+    try { from = localStorage.getItem('blackink_plaid_heal_from'); } catch (e) {}
+    if (!from) return;
+    try {
+      await backfillRange(from, toISODate(new Date()));
+      localStorage.removeItem('blackink_plaid_heal_from');
+    } catch (e) { /* keep the flag; retried on the next sync */ }
+  }
+
+  /* Ack sync cursors only once the state holding those transactions is
+     durably in the cloud. If our push loses the CAS race, the imported
+     transactions were discarded with the local state — an acked cursor
+     would skip them forever; unacked, the next sync re-delivers them. */
+  async function confirmThenAck(data) {
+    if (window.BlackInkSync && BlackInkSync.user && typeof BlackInkSync.pushNow === 'function') {
+      let pushed = false;
+      try { pushed = await BlackInkSync.pushNow(); } catch (e) { pushed = false; }
+      if (!pushed) return;
+    }
+    ackCursors(data);
+  }
+
   async function syncNow(fromLink) {
     if (!available()) { toast('Sign in first', 'warn'); return; }
     const btn = document.getElementById('plaidSyncBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
     try {
+      await refreshBeforeSync();
+      await healIfFlagged();
       const data = await invoke('sync');
       const res = mapPlaidData(data);
       S.plaidLastSync = Date.now();
       save(); render();
-      ackCursors(data);
+      await confirmThenAck(data);
       if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');
       else toast(`Synced — ${res.imported} new, ${res.updated} updated${res.removed ? ', ' + res.removed + ' removed' : ''}${res.autoPosted ? ` · ${res.autoPosted} debt payment${res.autoPosted === 1 ? '' : 's'} logged` : ''}`, 'ok');
     } catch (e) {
@@ -130,11 +172,13 @@
     if (_silentSyncing) return;
     _silentSyncing = true;
     try {
+      await refreshBeforeSync();
+      await healIfFlagged();
       const data = await invoke('sync');
       const res = mapPlaidData(data);
       S.plaidLastSync = Date.now();
       save();
-      ackCursors(data);
+      await confirmThenAck(data);
       if (res.imported || res.updated || res.removed || res.autoPosted || (S.plaidReauth || []).length) {
         render();
         if ((S.plaidReauth || []).length) toast('An institution needs to be reconnected — see the Accounts tab', 'warn');

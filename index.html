@@ -4944,6 +4944,14 @@ function viewExport(){
       <button class="btn danger" onclick="deleteAllTransactions()">Delete all transactions</button>
       <button class="btn danger" onclick="resetAll()">Erase all data${window.BlackInkSync&&BlackInkSync.user?' (keep account)':''}</button>
     </div>
+    ${(()=>{ const bk=listSyncBackups(); return bk.length?`
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">
+      <p class="mini" style="margin:0 0 6px"><b>Sync safety snapshots</b> — taken automatically whenever a cloud copy replaces this device's data (and before restores).</p>
+      ${bk.slice(0,8).map(b=>`<div class="mini" style="display:flex;align-items:center;gap:10px;padding:3px 0">
+        <span>${fmtDate(new Date(b.ts))} ${new Date(b.ts).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} · ${esc(b.label)} · ${Math.max(1,Math.round(b.size/1024))} KB</span>
+        <button class="btn sm" style="margin-left:auto" onclick="restoreSyncBackup('${b.key}')">Restore</button>
+      </div>`).join('')}
+    </div>`:''; })()}
     ${window.BlackInkSync&&BlackInkSync.user?`
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
       <p class="mini">Deleting your account permanently removes your synced data, disconnects all linked banks, and cancels any Black Ink Plus subscription immediately. This cannot be undone.</p>
@@ -5370,12 +5378,50 @@ function exportCSV(kind){
 
 /* ---- Backup / restore ---- */
 function downloadBackup(){ downloadFile(JSON.stringify(S,null,2), `black-ink-backup-${toISODate(new Date())}.json`, 'application/json'); }
+
+/* Restoring state older than the Plaid cursor leaves a gap the normal sync
+   can never fill (the server cursor is already past it) — flag a date-ranged
+   backfill, consumed by the next sync. */
+function setPlaidHealFlag(st){
+  try{
+    if(!st || !st.plaidAccounts || !Object.keys(st.plaidAccounts).length) return;
+    const base = Number(st.plaidLastSync) || (Date.now() - 30*864e5);
+    const iso = toISODate(new Date(base - 3*864e5));
+    const existing = localStorage.getItem('blackink_plaid_heal_from');
+    if(!existing || iso < existing) localStorage.setItem('blackink_plaid_heal_from', iso);
+  }catch(e){}
+}
+
+/* Automatic sync-safety backups (written before any cloud overwrite). */
+function listSyncBackups(){
+  const out=[];
+  try{
+    Object.keys(localStorage).forEach(k=>{
+      if(k.indexOf('blackink_backup_')!==0) return;
+      const rest=k.slice('blackink_backup_'.length);
+      const i=rest.lastIndexOf('_');
+      const ts=Number(rest.slice(i+1));
+      if(!ts) return;
+      out.push({ key:k, label:rest.slice(0,i), ts, size:(localStorage.getItem(k)||'').length });
+    });
+  }catch(e){}
+  return out.sort((a,b)=>b.ts-a.ts);
+}
+function restoreSyncBackup(key){
+  let data=null;
+  try{ data=JSON.parse(localStorage.getItem(key)); }catch(e){}
+  if(!data || !Array.isArray(data.accounts)){ toast('That backup is not readable','warn'); return; }
+  confirmBox('Restore sync backup','This replaces ALL current data with the selected snapshot. The state being replaced is itself backed up first, and bank transactions newer than the snapshot are re-imported on the next sync. Continue?',()=>{
+    try{ localStorage.setItem('blackink_backup_prerestore_'+Date.now(), JSON.stringify(S)); }catch(e){}
+    S=data; migrate(S); setPlaidHealFlag(S); save(); toast('Snapshot restored'); render();
+  },'Restore',true);
+}
 function restoreBackup(ev){
   const file=ev.target.files[0]; if(!file) return;
   const rd=new FileReader();
   rd.onload=()=>{ try{ const data=JSON.parse(rd.result);
       if(!data||!Array.isArray(data.accounts)) throw new Error('Not a valid backup');
-      confirmBox('Restore backup','This replaces ALL current data with the backup file. Continue?',()=>{ S=data; migrate(S); save(); toast('Backup restored'); render(); },'Restore',true);
+      confirmBox('Restore backup','This replaces ALL current data with the backup file. Continue?',()=>{ try{ localStorage.setItem('blackink_backup_prerestore_'+Date.now(), JSON.stringify(S)); }catch(e){} S=data; migrate(S); setPlaidHealFlag(S); save(); toast('Backup restored'); render(); },'Restore',true);
     }catch(e){ toast('Could not read backup: '+e.message,'warn'); } };
   rd.readAsText(file); ev.target.value='';
 }

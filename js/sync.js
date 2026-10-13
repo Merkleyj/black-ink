@@ -7,10 +7,11 @@
      • every local write still goes to localStorage  → instant offline cache
      • the same write is debounced-pushed to Supabase → one JSONB row/user
      • on load we pull the cloud row and reconcile it with the local cache
-   Conflict policy: last-write-wins, but the losing copy is always kept as a
-   timestamped local backup so nothing is silently destroyed.
-   Cross-device: each device stamps its writes; a newer cloud revision that
-   this device hasn't seen is adopted (local backup kept first).
+   Conflict policy: the cloud row carries a single monotonic revision and
+   every push is a compare-and-swap against the revision this device's state
+   is based on. A device whose base is stale CANNOT overwrite newer cloud
+   data — it adopts the cloud copy instead, and the losing local copy is
+   always kept as a timestamped backup (restorable from Settings).
    ===================================================================== */
 (function () {
   'use strict';
@@ -53,7 +54,7 @@
     try {
       lsSet(BACKUP_PREFIX + label + '_' + Date.now(), jsonString);
       const keys = Object.keys(localStorage).filter((k) => k.indexOf(BACKUP_PREFIX) === 0).sort();
-      while (keys.length > 8) { localStorage.removeItem(keys.shift()); }
+      while (keys.length > 12) { localStorage.removeItem(keys.shift()); }
     } catch (e) {}
   }
 
@@ -70,15 +71,52 @@
     return data; // null if no row yet
   }
 
-  async function upsertRow(stateObj, revision) {
-    const row = {
-      user_id: Sync.user.id,
-      state: stateObj,
-      revision: revision,
-      device_id: deviceId(),
-    };
-    const { error } = await Sync.client.from(TABLE).upsert(row, { onConflict: 'user_id' });
+  /* Compare-and-swap write: only lands if the cloud row is still at baseRev.
+     Returns 'won' | 'lost' (row moved or doesn't exist). */
+  async function casUpdate(stateObj, baseRev) {
+    const { data, error } = await Sync.client.from(TABLE)
+      .update({ state: stateObj, revision: baseRev + 1, device_id: deviceId() })
+      .eq('user_id', Sync.user.id)
+      .eq('revision', baseRev)
+      .select('revision');
     if (error) throw error;
+    return (data && data.length) ? 'won' : 'lost';
+  }
+
+  async function insertRow(stateObj, revision) {
+    const { error } = await Sync.client.from(TABLE).insert({
+      user_id: Sync.user.id, state: stateObj, revision: revision, device_id: deviceId(),
+    });
+    if (error) throw error;
+  }
+
+  /* Adopt the cloud copy, preserving whatever was local first. */
+  function adoptCloud(cloudStr, cloudRev, localStr, hadLocalEdits) {
+    if (localStr && localStr !== cloudStr) backup(hadLocalEdits ? 'conflict' : 'local', localStr);
+    maybeFlagPlaidHeal(localStr, cloudStr);
+    lsSet(STORAGE_KEY, cloudStr);
+    setMeta({ revision: cloudRev, dirty: false });
+    if (hadLocalEdits && typeof window !== 'undefined' && typeof window.toast === 'function') {
+      window.toast('Another device updated your data first — adopted its version. Your local copy was backed up (Settings → Data management).', 'warn');
+    }
+  }
+
+  /* If the state we're adopting (or restoring) is BEHIND the outgoing state
+     in Plaid time, bank transactions imported in between exist at the bank
+     but not in the adopted copy — and the server-side sync cursor is already
+     past them. Flag a date-ranged backfill; js/plaid.js consumes the flag. */
+  function maybeFlagPlaidHeal(prevStr, nextStr) {
+    try {
+      if (!prevStr || !nextStr) return;
+      const prev = JSON.parse(prevStr), next = JSON.parse(nextStr);
+      const p = Number(prev && prev.plaidLastSync) || 0;
+      const n = Number(next && next.plaidLastSync) || 0;
+      if (!p || p - n < 36e5) return;                 // adopted copy isn't meaningfully behind
+      const from = new Date(Math.max(0, n ? n - 3 * 864e5 : p - 30 * 864e5));
+      const iso = from.toISOString().slice(0, 10);
+      const existing = lsGet('blackink_plaid_heal_from');
+      if (!existing || iso < existing) lsSet('blackink_plaid_heal_from', iso);
+    } catch (e) {}
   }
 
   /* ---------- public: attach a user (or null on sign-out) ---------- */
@@ -91,6 +129,9 @@
     Sync._pushTimer = setTimeout(() => { Sync.pushNow().catch(() => {}); }, PUSH_DEBOUNCE);
   };
 
+  /* Push with compare-and-swap. Returns true if our state landed, false if
+     the cloud had moved (in which case the cloud copy was adopted and the
+     local copy backed up — stale data never overwrites newer cloud data). */
   Sync.pushNow = async function () {
     if (!Sync.client || !Sync.user) return false;
     const localStr = lsGet(STORAGE_KEY);
@@ -98,15 +139,26 @@
     if (!Sync.online) { setMeta({ dirty: true }); status('offline'); return false; }
     let obj;
     try { obj = JSON.parse(localStr); } catch (e) { return false; }
-    const meta = getMeta();
-    const nextRev = (Number(meta.revision) || 0) + 1;
+    const baseRev = Number(getMeta().revision) || 0;
     try {
       status('syncing');
-      await upsertRow(obj, nextRev);
-      setMeta({ revision: nextRev, dirty: false });
-      Sync._lastPushedValue = localStr;
+      if ((await casUpdate(obj, baseRev)) === 'won') {
+        setMeta({ revision: baseRev + 1, dirty: false });
+        Sync._lastPushedValue = localStr;
+        status('synced');
+        return true;
+      }
+      // CAS lost: either no row yet (first push) or the cloud moved past us.
+      const row = await fetchRow();
+      if (!row) {
+        await insertRow(obj, baseRev + 1);
+        setMeta({ revision: baseRev + 1, dirty: false });
+        status('synced');
+        return true;
+      }
+      adoptCloud(JSON.stringify(row.state), Number(row.revision) || 0, localStr, true);
       status('synced');
-      return true;
+      return false;
     } catch (e) {
       setMeta({ dirty: true });
       status('error');
@@ -126,7 +178,7 @@
     if (!row) {
       if (localStr) {
         // Seed the cloud from whatever is already on this device.
-        try { await upsertRow(JSON.parse(localStr), (Number(meta.revision) || 0) + 1); setMeta({ revision: (Number(meta.revision) || 0) + 1, dirty: false }); status('synced'); }
+        try { await insertRow(JSON.parse(localStr), (Number(meta.revision) || 0) + 1); setMeta({ revision: (Number(meta.revision) || 0) + 1, dirty: false }); status('synced'); }
         catch (e) { setMeta({ dirty: true }); status('error'); }
       }
       return localStr;
@@ -134,30 +186,48 @@
 
     const cloudStr = JSON.stringify(row.state);
     const cloudRev = Number(row.revision) || 0;
-    const knownRev = Number(meta.revision) || 0;
+    const baseRev = Number(meta.revision) || 0;
 
-    // Case A: we have unsynced local edits (dirty) that the cloud hasn't seen.
-    if (meta.dirty && localStr && localStr !== cloudStr) {
-      // Keep local (last-write-wins for the active device); stash cloud first.
+    // Local edits the cloud hasn't seen, AND our base matches the cloud's
+    // revision → nobody else wrote in between; fast-forward push (CAS-safe).
+    // If the base does NOT match, this device is stale: it must never
+    // overwrite the cloud, no matter what its dirty flag claims.
+    if (meta.dirty && localStr && localStr !== cloudStr && cloudRev === baseRev) {
       backup('cloud', cloudStr);
-      try { await upsertRow(JSON.parse(localStr), cloudRev + 1); setMeta({ revision: cloudRev + 1, dirty: false }); status('synced'); }
-      catch (e) { setMeta({ dirty: true }); status('error'); }
-      return localStr;
+      try {
+        if ((await casUpdate(JSON.parse(localStr), baseRev)) === 'won') {
+          setMeta({ revision: baseRev + 1, dirty: false });
+          status('synced');
+          return localStr;
+        }
+        // Lost a race between fetch and write: re-fetch and adopt below.
+        const again = await fetchRow();
+        if (again) { adoptCloud(JSON.stringify(again.state), Number(again.revision) || 0, localStr, true); status('synced'); return lsGet(STORAGE_KEY); }
+      } catch (e) { setMeta({ dirty: true }); status('error'); return localStr; }
     }
 
-    // Case B: cloud is ahead of what this device last saw → adopt cloud.
-    if (cloudRev >= knownRev) {
-      if (localStr && localStr !== cloudStr) backup('local', localStr); // never lose the local copy
-      lsSet(STORAGE_KEY, cloudStr);
-      setMeta({ revision: cloudRev, dirty: false });
+    // Cloud differs from local (stale device, other-device write, or clean
+    // catch-up) → adopt the cloud copy; local is backed up first.
+    if (localStr !== cloudStr) {
+      adoptCloud(cloudStr, cloudRev, localStr, !!meta.dirty);
       status('synced');
       return cloudStr;
     }
 
-    // Case C: local cache matches / is current.
+    // Identical content: just align our base revision with the cloud.
+    setMeta({ revision: cloudRev, dirty: false });
     status('synced');
     return localStr || cloudStr;
   }
+
+  /* Re-pull and reconcile on demand (used before Plaid syncs and pushes).
+     Returns true if the local state changed (caller should reload S). */
+  Sync.refresh = async function () {
+    if (!Sync.client || !Sync.user) return false;
+    const before = lsGet(STORAGE_KEY);
+    try { const resolved = await pullReconcile(); return resolved !== before; }
+    catch (e) { return false; }
+  };
 
   /* ---------- install the Store bridge ---------- */
   Sync.installStoreBridge = function () {
