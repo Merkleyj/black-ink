@@ -155,6 +155,10 @@
      repair windows lost to a sync whose response never reached the client. */
   async function backfillRange(start, end) {
     const data = await invoke('backfill', { start, end });
+    // Recovery imports settle history only: pending charges are the live
+    // sync's job, and re-importing them here resurrects stale authorizations
+    // that were already cleaned up.
+    data.added = (data.added || []).filter((t) => !t.pending);
     const res = mapPlaidData(data);
     S.plaidLastSync = Date.now();
     save(); if (typeof render === 'function') render();
@@ -528,7 +532,7 @@
     // anchored to the bank in step 5, so this can never distort a balance;
     // a prematurely dropped pending simply reappears when it posts.
     {
-      const EXPIRE_MS = 8 * 864e5;
+      const EXPIRE_MS = 7 * 864e5;
       const postedRows = S.transactions.filter(t => t.plaidId && !t.pending);
       let expired = 0;
       S.transactions = S.transactions.filter(t => {
