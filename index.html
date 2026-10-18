@@ -1458,16 +1458,21 @@ function isIncomeTx(t){
   return t.kind==='income' || t.flow==='income' || t.category==='Income'
       || (t.subcategory && subClassification(t.subcategory)==='income');
 }
-/* Income always adds, expense always subtracts — derived from the transaction's
-   nature, not a stored sign that can go stale after re-categorization. Transfers
-   keep their bank-given direction since they can be either way. */
+/* Which way money moved. For bank-synced rows the direction is a BANK FACT
+   (stored in t.signed at import) — categorization must never flip a balance:
+   a refund filed under Clothing is still money in, and an outflow mislabeled
+   Income is still money out. Manual rows have no bank fact, so their sign is
+   derived from the category (income adds, expense subtracts, transfers keep
+   their given direction). */
 function signedAmount(t){
   const amt=Math.abs(Number(t.amount)||0);
+  if(t.plaidId && t.signed!==undefined && t.signed!==null) return Number(t.signed);
   if(isTransfer(t)) return (t.signed!==undefined && t.signed!==null) ? Number(t.signed) : -amt;
   return isIncomeTx(t) ? amt : -amt;
 }
 /* Recompute and store t.signed consistently (used after categorization). */
 function applySign(t){
+  if(t.plaidId && t.signed!==undefined && t.signed!==null) return;   // bank direction is immutable
   if(t.transfer || isTransfer(t)){ if(t.signed===undefined||t.signed===null) t.signed=-Math.abs(Number(t.amount)||0); return; }
   t.signed=(isIncomeTx(t)?1:-1)*Math.abs(Number(t.amount)||0);
 }
