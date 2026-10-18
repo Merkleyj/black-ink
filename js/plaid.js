@@ -519,6 +519,31 @@
     });
     res.autoPosted = autoPostPayments(newTxs);
 
+    // 4.5) Expire stale pending rows. Banks drop card authorizations within
+    // about a week, and merchants often post a tip-adjusted final amount
+    // under a NEW transaction id — when the retraction event for the old
+    // pending gets lost, the dead auth lingers and inflates spending. Drop a
+    // Plaid-sourced pending when (a) it is older than 8 days, or (b) a posted
+    // row with the same amount landed within 4 days after it. Balances are
+    // anchored to the bank in step 5, so this can never distort a balance;
+    // a prematurely dropped pending simply reappears when it posts.
+    {
+      const EXPIRE_MS = 8 * 864e5;
+      const postedRows = S.transactions.filter(t => t.plaidId && !t.pending);
+      let expired = 0;
+      S.transactions = S.transactions.filter(t => {
+        if (!t.pending || !t.plaidId) return true;
+        const age = Date.now() - new Date(t.date + 'T12:00:00').getTime();
+        if (age > EXPIRE_MS) { expired++; return false; }
+        const twin = postedRows.some(p => p.accountId === t.accountId && p.id !== t.id &&
+          Math.abs((Number(p.signed) || 0) - (Number(t.signed) || 0)) < 0.001 &&
+          p.date >= t.date && (new Date(p.date) - new Date(t.date)) <= 4 * 864e5);
+        if (twin) { expired++; return false; }
+        return true;
+      });
+      res.removed += expired;
+    }
+
     // 5) reconcile each linked account's starting balance so the shown balance matches Plaid
     (data.accounts || []).forEach(pa => {
       const acctId = S.plaidAccounts[pa.account_id]; if (!acctId) return;
